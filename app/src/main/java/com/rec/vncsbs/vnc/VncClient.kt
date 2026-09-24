@@ -209,6 +209,99 @@ class VncClient(
                     "VncClient: SecurityResult = $securityResult"
                 )
 
+                if (securityResult != 0) {
+                    throw Exception(
+                        "Autenticação VNC falhou: $securityResult"
+                    )
+                }
+
+                output.write(1)
+                output.flush()
+
+                println(
+                    "VncClient: ClientInit enviado"
+                )
+
+                val widthBytes = ByteArray(2)
+                val heightBytes = ByteArray(2)
+
+                readFully(
+                    input,
+                    widthBytes
+                )
+
+                readFully(
+                    input,
+                    heightBytes
+                )
+
+                val framebufferWidth =
+                    ((widthBytes[0].toInt() and 0xFF) shl 8) or
+                    (widthBytes[1].toInt() and 0xFF)
+
+                val framebufferHeight =
+                    ((heightBytes[0].toInt() and 0xFF) shl 8) or
+                    (heightBytes[1].toInt() and 0xFF)
+
+                println(
+                    "VncClient: framebuffer = " +
+                        "${framebufferWidth}x${framebufferHeight}"
+                )
+
+                val pixelFormat = ByteArray(16)
+
+                readFully(
+                    input,
+                    pixelFormat
+                )
+
+                println(
+                    "VncClient: PixelFormat = " +
+                        pixelFormat.joinToString(" ") {
+                            "%02X".format(it.toInt() and 0xFF)
+                        }
+                )
+
+                val nameLengthBytes = ByteArray(4)
+
+                readFully(
+                    input,
+                    nameLengthBytes
+                )
+
+                val nameLength =
+                    ((nameLengthBytes[0].toInt() and 0xFF) shl 24) or
+                    ((nameLengthBytes[1].toInt() and 0xFF) shl 16) or
+                    ((nameLengthBytes[2].toInt() and 0xFF) shl 8) or
+                    (nameLengthBytes[3].toInt() and 0xFF)
+
+                println(
+                    "VncClient: desktop name length = $nameLength"
+                )
+
+                if (nameLength < 0 || nameLength > 1024) {
+                    throw Exception(
+                        "Nome do desktop com tamanho inválido: $nameLength"
+                    )
+                }
+
+                val nameBytes = ByteArray(nameLength)
+
+                readFully(
+                    input,
+                    nameBytes
+                )
+
+                val desktopName = String(
+                    nameBytes,
+                    Charsets.UTF_8
+                )
+
+                println(
+                    "VncClient: desktop name = $desktopName"
+                )
+
+
             } catch (e: Exception) {
                 println(
                     "VncClient: erro = ${e.message}"
@@ -272,6 +365,29 @@ class VncClient(
         }
 
         return result
+    }
+
+    private fun readFully(
+        input: java.io.InputStream,
+        buffer: ByteArray
+    ) {
+        var offset = 0
+
+        while (offset < buffer.size) {
+            val count = input.read(
+                buffer,
+                offset,
+                buffer.size - offset
+            )
+
+            if (count < 0) {
+                throw Exception(
+                    "Conexão encerrada durante leitura"
+                )
+            }
+
+            offset += count
+        }
     }
 
 }
