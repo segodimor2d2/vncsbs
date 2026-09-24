@@ -487,3 +487,22 @@ Não vale começar adicionando JNI e NDK antes de sabermos que precisamos deles.
 
 ---
 $$$$
+
+```bash
+
+
+e /home/segodimo/05android/vncsbs/readme.md
+e /home/segodimo/05android/vncsbs/app/build.gradle.kts
+e /home/segodimo/05android/vncsbs/gradle/libs.versions.toml
+e /home/segodimo/05android/vncsbs/app/src/main/java/com/rec/vncsbs/MainActivity.kt
+
+
+cd /home/segodimo/05android/vncsbs/ | term
+
+
+./gradlew installDebug && adb shell am start -n com.rec.vncsbs/.MainActivity 
+
+```
+
+---
+$$$$
