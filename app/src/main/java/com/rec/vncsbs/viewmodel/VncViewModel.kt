@@ -45,10 +45,10 @@ class VncViewModel : ViewModel() {
                     80
                 }
 
-                pixels[index] = value.toByte()       // R
-                pixels[index + 1] = value.toByte()   // G
-                pixels[index + 2] = value.toByte()   // B
-                pixels[index + 3] = 255.toByte()     // A
+                pixels[index] = value.toByte()
+                pixels[index + 1] = value.toByte()
+                pixels[index + 2] = value.toByte()
+                pixels[index + 3] = 255.toByte()
             }
         }
 

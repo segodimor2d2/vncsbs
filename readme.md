@@ -681,6 +681,84 @@ Compose Image
 ---
 $$$$
 
+
+Perfeito. Agora podemos começar a separar a parte de VNC da UI.
+
+### Etapa 3.1 — Criar a camada `VncClient`
+
+Ainda **não vamos implementar o protocolo VNC**. Vamos apenas criar a interface da camada que futuramente vai cuidar da conexão.
+
+Crie o arquivo:
+
+```text
+app/src/main/java/com/rec/vncsbs/vnc/VncClient.kt
+```
+
+Com:
+
+```kotlin id="45172" title="VncClient.kt"
+package com.rec.vncsbs.vnc
+
+class VncClient {
+
+    fun connect(
+        host: String,
+        port: Int
+    ) {
+        println("VncClient: connect $host:$port")
+    }
+
+    fun disconnect() {
+        println("VncClient: disconnect")
+    }
+}
+```
+
+Por enquanto ele **não abre socket** e não faz nenhuma comunicação. É apenas o ponto de entrada da futura implementação VNC.
+
+### Por que separar agora?
+
+Queremos chegar a algo assim:
+
+```text
+                 ┌─────────────────┐
+                 │    VncClient    │
+                 │                 │
+                 │ protocolo VNC   │
+                 └────────┬────────┘
+                          │
+                          ▼
+                    RemoteFrame
+                          │
+                          ▼
+                    VncViewModel
+                          │
+                          ▼
+                    VncScreen
+                          │
+                 ┌────────┴────────┐
+                 ▼                 ▼
+              LEFT EYE          RIGHT EYE
+```
+
+A UI não precisa saber como o VNC funciona.
+
+### Teste
+
+Agora apenas:
+
+```bash
+./gradlew assembleDebug
+```
+
+Se passar, **pare aí**.
+
+No próximo passo vamos conectar o `VncClient` ao `VncViewModel`, mas ainda sem rede. Só vamos verificar se a arquitetura está conversando corretamente antes de implementar o protocolo.
+
+---
+$$$$
+@@@@
+
 ```bash
 
 
@@ -699,3 +777,4 @@ cd /home/segodimo/05android/vncsbs/ | term
 
 ---
 $$$$
+@@@@
