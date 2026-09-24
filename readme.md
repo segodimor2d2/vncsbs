@@ -773,6 +773,19 @@ cd /home/segodimo/05android/vncsbs/ | term
 
 ./gradlew installDebug && adb shell am start -n com.rec.vncsbs/.MainActivity 
 
+
+
+adb shell am start -n com.rec.vncsbs/.MainActivity && adb logcat -c && adb logcat -v threadtime | grep -E "VncClient"
+
+
+adb logcat -c && adb logcat -v threadtime | grep -E "VncClient"
+
+adb shell am start -n com.rec.vncsbs/.MainActivity 
+adb shell am force-stop com.rec.vncsbs                  
+
+
+x0vncserver -display :0 -passwordfile ~/.vnc/passwd -rfbport 5900            
+
 ```
 
 ---

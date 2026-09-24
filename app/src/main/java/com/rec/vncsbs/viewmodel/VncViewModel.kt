@@ -2,6 +2,7 @@ package com.rec.vncsbs.viewmodel
 
 import androidx.lifecycle.ViewModel
 import com.rec.vncsbs.ui.RemoteFrame
+import com.rec.vncsbs.vnc.VncClient
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -13,6 +14,19 @@ data class VncUiState(
 
 class VncViewModel : ViewModel() {
 
+fun testVncConnection() {
+    vncClient.connect(
+        host = "192.168.31.127",
+        port = 5900
+    )
+}
+
+    private val vncClient = VncClient { frame ->
+        _uiState.value = _uiState.value.copy(
+            frame = frame
+        )
+    }
+
     private val _uiState = MutableStateFlow(
         VncUiState(
             frame = createTestFrame()
@@ -21,6 +35,20 @@ class VncViewModel : ViewModel() {
 
     val uiState: StateFlow<VncUiState> =
         _uiState.asStateFlow()
+
+    fun connect(
+        host: String,
+        port: Int
+    ) {
+        vncClient.connect(
+            host = host,
+            port = port
+        )
+    }
+
+    fun disconnect() {
+        vncClient.disconnect()
+    }
 
     private fun createTestFrame(): RemoteFrame {
 
