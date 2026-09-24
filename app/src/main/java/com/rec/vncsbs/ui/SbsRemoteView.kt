@@ -64,17 +64,16 @@ private fun RemoteView(
                     val pixelIndex =
                         (y * frame.width + x) * 4
 
-                    val r =
+                    val b =
                         frame.pixels[pixelIndex].toInt() and 0xFF
 
                     val g =
                         frame.pixels[pixelIndex + 1].toInt() and 0xFF
 
-                    val b =
+                    val r =
                         frame.pixels[pixelIndex + 2].toInt() and 0xFF
 
-                    val a =
-                        frame.pixels[pixelIndex + 3].toInt() and 0xFF
+                    val a = 255
 
                     colors[y * frame.width + x] =
                         (a shl 24) or

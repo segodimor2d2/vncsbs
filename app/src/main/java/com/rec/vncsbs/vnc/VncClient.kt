@@ -501,15 +501,20 @@ class VncClient(
                             )
                         }
 
-                        val pixelBytes =
-                            rectWidth * rectHeight * 4
+                        val pixelBytes = rectWidth * rectHeight * 4
 
                         val pixels = ByteArray(pixelBytes)
 
-                        readFully(
-                            input,
-                            pixels
-                        )
+                        readFully( input, pixels)
+
+                        if (rectangleIndex == 0) {
+                            println(
+                                "VncClient: primeiros pixels = " +
+                                    pixels.take(16).joinToString(" ") {
+                                        "%02X".format(it.toInt() and 0xFF)
+                                    }
+                            )
+                        }
 
                         for (y in 0 until rectHeight) {
 
