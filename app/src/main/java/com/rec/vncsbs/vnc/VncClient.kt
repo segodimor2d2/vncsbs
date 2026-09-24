@@ -429,48 +429,88 @@ class VncClient(
                     "VncClient: rectangles = $rectangleCount"
                 )
 
-                val secondRequest = ByteArray(10)
+                if (rectangleCount > 0) {
 
-                secondRequest[0] = 3       // FramebufferUpdateRequest
-                secondRequest[1] = 0       // incremental = false
+                    val rectangleHeader = ByteArray(12)
 
-                secondRequest[2] = 0       // x
-                secondRequest[3] = 0
+                    readFully(
+                        input,
+                        rectangleHeader
+                    )
 
-                secondRequest[4] = 0       // y
-                secondRequest[5] = 0
+                    val rectX =
+                        ((rectangleHeader[0].toInt() and 0xFF) shl 8) or
+                        (rectangleHeader[1].toInt() and 0xFF)
 
-                secondRequest[6] =
-                    (framebufferWidth shr 8).toByte()
-                secondRequest[7] =
-                    framebufferWidth.toByte()
+                    val rectY =
+                        ((rectangleHeader[2].toInt() and 0xFF) shl 8) or
+                        (rectangleHeader[3].toInt() and 0xFF)
 
-                secondRequest[8] =
-                    (framebufferHeight shr 8).toByte()
-                secondRequest[9] =
-                    framebufferHeight.toByte()
+                    val rectWidth =
+                        ((rectangleHeader[4].toInt() and 0xFF) shl 8) or
+                        (rectangleHeader[5].toInt() and 0xFF)
 
-                output.write(secondRequest)
-                output.flush()
+                    val rectHeight =
+                        ((rectangleHeader[6].toInt() and 0xFF) shl 8) or
+                        (rectangleHeader[7].toInt() and 0xFF)
 
-                println(
-                    "VncClient: segundo FramebufferUpdateRequest enviado"
-                )
+                    val encoding =
+                        ((rectangleHeader[8].toInt() and 0xFF) shl 24) or
+                        ((rectangleHeader[9].toInt() and 0xFF) shl 16) or
+                        ((rectangleHeader[10].toInt() and 0xFF) shl 8) or
+                        (rectangleHeader[11].toInt() and 0xFF)
 
-                val secondHeader = ByteArray(4)
+                    println(
+                        "VncClient: rectangle 0 = " +
+                            "${rectX},${rectY} " +
+                            "${rectWidth}x${rectHeight} " +
+                            "encoding=$encoding"
+                    )
 
-                readFully(
-                    input,
-                    secondHeader
-                )
+                    if (encoding == 0) {
 
-                println(
-                    "VncClient: segunda resposta header = " +
-                        secondHeader.joinToString(" ") {
-                            "%02X".format(it.toInt() and 0xFF)
+                        val pixelBytes =
+                            rectWidth * rectHeight * 4
+
+                        println(
+                            "VncClient: lendo pixels rectangle 0 = " +
+                                "$pixelBytes bytes"
+                        )
+
+                        val pixels = ByteArray(pixelBytes)
+
+                        var totalRead = 0
+
+                        while (totalRead < pixels.size) {
+
+                            val count = input.read(
+                                pixels,
+                                totalRead,
+                                pixels.size - totalRead
+                            )
+
+                            if (count < 0) {
+                                throw Exception(
+                                    "Conexão encerrada ao ler pixels: " +
+                                        "$totalRead/$pixelBytes bytes"
+                                )
+                            }
+
+                            totalRead += count
+
+                            println(
+                                "VncClient: pixels rectangle 0 = " +
+                                    "$totalRead/$pixelBytes bytes"
+                            )
                         }
 
-                )
+                        println(
+                            "VncClient: pixels rectangle 0 recebidos = " +
+                                "$totalRead bytes"
+                        )
+
+                    }
+                }
 
 
             } catch (e: Exception) {

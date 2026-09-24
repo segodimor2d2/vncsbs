@@ -1366,6 +1366,11 @@ A partir desses 4 bytes vamos continuar o parser **sem mais tentativas cegas**.
 
 ---
 $$$$
+
+comunicação VNC funcionando
+
+---
+$$$$
 @@@@
 
 
