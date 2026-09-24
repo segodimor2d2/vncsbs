@@ -301,6 +301,167 @@ class VncClient(
                     "VncClient: desktop name = $desktopName"
                 )
 
+                val setPixelFormat = ByteArray(20)
+
+                setPixelFormat[0] = 0       // SetPixelFormat
+                setPixelFormat[1] = 0
+                setPixelFormat[2] = 0
+                setPixelFormat[3] = 0
+
+                setPixelFormat[4] = 32      // bits-per-pixel
+                setPixelFormat[5] = 24      // depth
+                setPixelFormat[6] = 0       // little-endian
+                setPixelFormat[7] = 1       // true-color
+
+                // red-max = 255
+                setPixelFormat[8] = 0
+                setPixelFormat[9] = 255.toByte()
+
+                // green-max = 255
+                setPixelFormat[10] = 0
+                setPixelFormat[11] = 255.toByte()
+
+                // blue-max = 255
+                setPixelFormat[12] = 0
+                setPixelFormat[13] = 255.toByte()
+
+                setPixelFormat[14] = 16     // red-shift
+                setPixelFormat[15] = 8      // green-shift
+                setPixelFormat[16] = 0      // blue-shift
+
+                // padding
+                setPixelFormat[17] = 0
+                setPixelFormat[18] = 0
+                setPixelFormat[19] = 0
+
+                output.write(setPixelFormat)
+                output.flush()
+
+                println(
+                    "VncClient: SetPixelFormat enviado = 32bpp RGB"
+                )
+
+                val setEncodings = ByteArray(8)
+
+                setEncodings[0] = 2       // SetEncodings
+                setEncodings[1] = 0       // padding
+
+                setEncodings[2] = 0       // número de encodings
+                setEncodings[3] = 1       // 1 encoding
+
+                setEncodings[4] = 0       // RAW = 0
+                setEncodings[5] = 0
+                setEncodings[6] = 0
+                setEncodings[7] = 0
+
+                output.write(setEncodings)
+                output.flush()
+
+                println(
+                    "VncClient: SetEncodings enviado = RAW"
+                )
+
+                val request = ByteArray(10)
+
+                request[0] = 3       // FramebufferUpdateRequest
+                request[1] = 0       // incremental = false
+
+                request[2] = 0       // x = 0
+                request[3] = 0
+
+                request[4] = 0       // y = 0
+                request[5] = 0
+
+                request[6] = (framebufferWidth shr 8).toByte()
+                request[7] = framebufferWidth.toByte()
+
+                request[8] = (framebufferHeight shr 8).toByte()
+                request[9] = framebufferHeight.toByte()
+
+                output.write(request)
+                output.flush()
+
+                println(
+                    "VncClient: FramebufferUpdateRequest enviado = " +
+                        "${framebufferWidth}x${framebufferHeight}"
+                )
+
+                val messageType = input.read()
+
+                if (messageType < 0) {
+                    throw Exception(
+                        "Conexão encerrada ao ler FramebufferUpdate"
+                    )
+                }
+
+                println(
+                    "VncClient: mensagem recebida = $messageType"
+                )
+
+                if (messageType != 0) {
+                    throw Exception(
+                        "Mensagem VNC inesperada: $messageType"
+                    )
+                }
+
+                val rectangleCountBytes = ByteArray(2)
+
+                readFully(
+                    input,
+                    rectangleCountBytes
+                )
+
+                val rectangleCount =
+                    ((rectangleCountBytes[0].toInt() and 0xFF) shl 8) or
+                    (rectangleCountBytes[1].toInt() and 0xFF)
+
+                println(
+                    "VncClient: rectangles = $rectangleCount"
+                )
+
+                val secondRequest = ByteArray(10)
+
+                secondRequest[0] = 3       // FramebufferUpdateRequest
+                secondRequest[1] = 0       // incremental = false
+
+                secondRequest[2] = 0       // x
+                secondRequest[3] = 0
+
+                secondRequest[4] = 0       // y
+                secondRequest[5] = 0
+
+                secondRequest[6] =
+                    (framebufferWidth shr 8).toByte()
+                secondRequest[7] =
+                    framebufferWidth.toByte()
+
+                secondRequest[8] =
+                    (framebufferHeight shr 8).toByte()
+                secondRequest[9] =
+                    framebufferHeight.toByte()
+
+                output.write(secondRequest)
+                output.flush()
+
+                println(
+                    "VncClient: segundo FramebufferUpdateRequest enviado"
+                )
+
+                val secondMessageType = input.read()
+
+                if (secondMessageType < 0) {
+                    throw Exception(
+                        "Conexão encerrada ao ler segunda resposta"
+                    )
+                }
+
+                println(
+                    "VncClient: segunda mensagem recebida = " +
+                        secondMessageType
+                )
+
+
+
 
             } catch (e: Exception) {
                 println(

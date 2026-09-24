@@ -1089,6 +1089,118 @@ Ainda **não vamos ler o framebuffer** neste passo.
 
 ---
 $$$$
+
+
+Sim — e agora temos uma pista importante. A versão é **TigerVNC 1.16.2**, e o comportamento do `x0vncserver` explica por que eu não quero que continuemos adicionando tentativas às cegas.
+
+O protocolo RFB diz que uma requisição com `incremental = 0` deve solicitar o conteúdo inteiro da área. ([GitHub][1]) O próprio TigerVNC usa uma requisição inicial desse tipo quando a conexão é inicializada. ([GitHub][2])
+
+Além disso, o `x0vncserver` possui `CompareFB`, cujo padrão é `2` (auto), justamente para evitar atualizações desnecessárias quando não há mudança no framebuffer. ([GitHub][3])
+
+### Então vamos fazer um teste específico do TigerVNC
+
+No **PC que roda o `x0vncserver`**, pare o servidor atual e inicie temporariamente assim:
+
+```bash
+x0vncserver \
+    -display :0 \
+    -passwordfile ~/.vnc/passwd \
+    -rfbport 5900 \
+    -CompareFB 0
+```
+
+A diferença é:
+
+```text
+CompareFB 0
+```
+
+que desativa a comparação do framebuffer.
+
+**Não precisamos alterar o Android agora.**
+
+Depois, com esse servidor rodando, no Android pressione novamente **VNC CONNECT**.
+
+Se aparecer:
+
+```text
+VncClient: mensagem recebida = 0
+VncClient: rectangles = 1
+```
+
+então encontramos a causa do comportamento anterior.
+
+Se continuar:
+
+```text
+VncClient: rectangles = 0
+```
+
+aí temos uma informação muito mais específica e podemos investigar o fluxo do TigerVNC sem ficar alterando o cliente aleatoriamente.
+
+### Um detalhe importante
+
+Não precisamos adicionar aquele teste de:
+
+```kotlin
+"aguardando próxima mensagem..."
+```
+
+que eu tinha sugerido antes. **Pode deixar ou remover**, mas para o próximo teste ele não é necessário.
+
+Eu faria primeiro **somente `-CompareFB 0` no servidor**. Isso mantém nosso Android exatamente no estado atual e testa uma variável do lado do servidor.
+
+[1]: https://github.com/svn2github/tigervnc/blob/master/rfbproto/rfbproto.rst?utm_source=chatgpt.com "tigervnc/rfbproto/rfbproto.rst at master · svn2github/tigervnc · GitHub"
+[2]: https://github.com/TigerVNC/tigervnc/blob/master/common/rfb/CConnection.cxx?utm_source=chatgpt.com "tigervnc/common/rfb/CConnection.cxx at master · TigerVNC/tigervnc · GitHub"
+[3]: https://github.com/TigerVNC/tigervnc/blob/master/unix/x0vncserver/x0vncserver.man?utm_source=chatgpt.com "tigervnc/unix/x0vncserver/x0vncserver.man at master · TigerVNC/tigervnc · GitHub"
+
+---
+$$$$
+
+O que já está comprovadamente funcionando
+
+A sequência inteira até agora é:
+
+TCP
+ ↓
+RFB 003.008
+ ↓
+Security Types: 19, 2
+ ↓
+seleciona VNC Authentication (2)
+ ↓
+challenge 16 bytes
+ ↓
+DES com a senha
+ ↓
+SecurityResult = 0       ← senha aceita
+ ↓
+ClientInit
+ ↓
+ServerInit
+ ↓
+1920x1080
+ ↓
+PixelFormat
+ ↓
+SetPixelFormat
+ ↓
+SetEncodings = RAW
+ ↓
+FramebufferUpdateRequest
+ ↓
+FramebufferUpdate
+ ↓
+rectangles = 0
+
+Portanto, não é um problema de senha.
+
+O problema que estamos investigando agora está depois da autenticação, especificamente por que o x0vncserver está devolvendo um FramebufferUpdate com zero rectangles.
+
+E você fez certo em perguntar: não precisamos colocar uma tela de senha agora. Primeiro vamos conseguir receber a imagem. Depois podemos decidir como a senha será configurada na interface do aplicativo.
+
+---
+$$$$
 @@@@
 
 
