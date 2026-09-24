@@ -10,10 +10,13 @@ import com.rec.vncsbs.viewmodel.VncViewModel
 fun VncScreen(
     viewModel: VncViewModel
 ) {
+    val frame = RemoteFrame()
+
     Box(
         modifier = Modifier.fillMaxSize()
     ) {
         SbsRemoteView(
+            frame = frame,
             modifier = Modifier.fillMaxSize()
         )
     }

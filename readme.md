@@ -488,6 +488,178 @@ Não vale começar adicionando JNI e NDK antes de sabermos que precisamos deles.
 ---
 $$$$
 
+
+Perfeito. Agora vamos fazer um passo pequeno: **tirar o `RemoteFrame` de dentro do `SbsRemoteView`**.
+
+Assim o `SbsRemoteView` não cria mais o frame. Ele apenas **recebe o frame que veio de fora**. Isso prepara exatamente o ponto onde, depois, o VNC vai alimentar a imagem.
+
+### Etapa 2.3 — `RemoteFrame` passa a ser entrada da tela
+
+Substitua o `SbsRemoteView.kt` por:
+
+```kotlin id="58321" title="SbsRemoteView.kt"
+package com.rec.vncsbs.ui
+
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.dp
+
+data class RemoteFrame(
+    val testValue: Float = 0.5f
+)
+
+@Composable
+fun SbsRemoteView(
+    frame: RemoteFrame,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier.fillMaxSize()
+    ) {
+        RemoteView(
+            frame = frame,
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxSize()
+                .padding(4.dp)
+        )
+
+        RemoteView(
+            frame = frame,
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxSize()
+                .padding(4.dp)
+        )
+    }
+}
+
+@Composable
+private fun RemoteView(
+    frame: RemoteFrame,
+    modifier: Modifier = Modifier
+) {
+    Canvas(
+        modifier = modifier
+    ) {
+        drawRect(
+            color = Color.DarkGray
+        )
+
+        drawCircle(
+            color = Color.White,
+            radius = size.minDimension * 0.18f,
+            center = Offset(
+                x = size.width / 2f,
+                y = size.height * frame.testValue
+            )
+        )
+
+        drawLine(
+            color = Color.White,
+            start = Offset(
+                x = 0f,
+                y = size.height / 2f
+            ),
+            end = Offset(
+                x = size.width,
+                y = size.height / 2f
+            ),
+            strokeWidth = 4f
+        )
+
+        drawLine(
+            color = Color.White,
+            start = Offset(
+                x = size.width / 2f,
+                y = 0f
+            ),
+            end = Offset(
+                x = size.width / 2f,
+                y = size.height
+            ),
+            strokeWidth = 4f
+        )
+    }
+}
+```
+
+Agora precisamos alterar o `VncScreen.kt`, porque ele ainda chama:
+
+```kotlin
+SbsRemoteView(
+    modifier = Modifier.fillMaxSize()
+)
+```
+
+Mude para:
+
+```kotlin id="74106" title="VncScreen.kt"
+package com.rec.vncsbs.ui
+
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import com.rec.vncsbs.viewmodel.VncViewModel
+
+@Composable
+fun VncScreen(
+    viewModel: VncViewModel
+) {
+    val frame = RemoteFrame()
+
+    Box(
+        modifier = Modifier.fillMaxSize()
+    ) {
+        SbsRemoteView(
+            frame = frame,
+            modifier = Modifier.fillMaxSize()
+        )
+    }
+}
+```
+
+### Teste
+
+Primeiro:
+
+```bash
+./gradlew assembleDebug
+```
+
+Se passar:
+
+```bash
+./gradlew installDebug
+```
+
+Visualmente deve continuar **exatamente igual**.
+
+A diferença arquitetural é importante:
+
+```text
+VncScreen
+    │
+    └── RemoteFrame
+            │
+            ▼
+      SbsRemoteView
+          ├── olho esquerdo
+          └── olho direito
+```
+
+Depois desse teste, o próximo passo será colocar a criação do `RemoteFrame` no `VncViewModel`, que é onde começa a ficar preparado para receber os frames do VNC.
+
+---
+$$$$
+
 ```bash
 
 

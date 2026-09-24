@@ -10,14 +10,20 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
+data class RemoteFrame(
+    val testValue: Float = 0.5f
+)
+
 @Composable
 fun SbsRemoteView(
+    frame: RemoteFrame,
     modifier: Modifier = Modifier
 ) {
     Row(
         modifier = modifier.fillMaxSize()
     ) {
         RemoteView(
+            frame = frame,
             modifier = Modifier
                 .weight(1f)
                 .fillMaxSize()
@@ -25,6 +31,7 @@ fun SbsRemoteView(
         )
 
         RemoteView(
+            frame = frame,
             modifier = Modifier
                 .weight(1f)
                 .fillMaxSize()
@@ -35,6 +42,7 @@ fun SbsRemoteView(
 
 @Composable
 private fun RemoteView(
+    frame: RemoteFrame,
     modifier: Modifier = Modifier
 ) {
     Canvas(
@@ -49,7 +57,7 @@ private fun RemoteView(
             radius = size.minDimension * 0.18f,
             center = Offset(
                 x = size.width / 2f,
-                y = size.height / 2f
+                y = size.height * frame.testValue
             )
         )
 
