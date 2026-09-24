@@ -757,7 +757,341 @@ No próximo passo vamos conectar o `VncClient` ao `VncViewModel`, mas ainda sem 
 
 ---
 $$$$
+
+
+Perfeito. **O primeiro teste real do VNC funcionou.** 🎯
+
+Temos:
+
+```text
+TCP conectado
+servidor RFB = RFB 003.008
+```
+
+Ou seja:
+
+```text
+Android
+  ↓
+TCP socket
+  ↓
+VNC server :5900
+  ↓
+RFB 003.008
+```
+
+Agora vamos avançar **um único passo**: responder ao `RFB 003.008` que o servidor enviou.
+
+### Próximo passo: resposta de versão
+
+Atualmente fazemos:
+
+```kotlin
+val version = String(
+    versionBytes,
+    Charsets.US_ASCII
+)
+
+println("VncClient: servidor RFB = $version")
+```
+
+Logo depois disso, vamos enviar a mesma versão de volta:
+
+```kotlin
+output.write(versionBytes)
+output.flush()
+
+println("VncClient: versão RFB enviada")
+```
+
+Para isso precisamos primeiro obter o `OutputStream`.
+
+No `VncClient.kt`, troque:
+
+```kotlin
+val input = newSocket.getInputStream()
+```
+
+por:
+
+```kotlin
+val input = newSocket.getInputStream()
+val output = newSocket.getOutputStream()
+```
+
+E depois de:
+
+```kotlin
+println("VncClient: servidor RFB = $version")
+```
+
+adicione:
+
+```kotlin
+output.write(versionBytes)
+output.flush()
+
+println("VncClient: versão RFB enviada")
+```
+
+Então esse trecho ficará:
+
+```kotlin
+val input = newSocket.getInputStream()
+val output = newSocket.getOutputStream()
+
+val versionBytes = ByteArray(12)
+
+var offset = 0
+
+while (offset < versionBytes.size) {
+    val count = input.read(
+        versionBytes,
+        offset,
+        versionBytes.size - offset
+    )
+
+    if (count < 0) {
+        throw Exception("Conexão encerrada pelo servidor")
+    }
+
+    offset += count
+}
+
+val version = String(
+    versionBytes,
+    Charsets.US_ASCII
+)
+
+println("VncClient: servidor RFB = $version")
+
+output.write(versionBytes)
+output.flush()
+
+println("VncClient: versão RFB enviada")
+```
+
+Compile:
+
+```bash
+./gradlew assembleDebug
+```
+
+**Só isso por enquanto.** Se compilar, me diga `foi`. A próxima etapa será ler os **Security Types** que o servidor enviar.
+
+---
+$$$$
+
+Perfeito. O servidor respondeu corretamente.
+
+Temos:
+
+```text
+Security Types = 19, 2
+```
+
+No RFB:
+
+* `19` = **VeNCrypt**
+* `2` = **VNC Authentication**
+
+Então **não temos `1 = None`**. O servidor exige autenticação.
+
+Vamos avançar com **VNC Authentication (`2`)**, que é o caminho mais simples para o primeiro teste. Ainda não vamos implementar a senha; primeiro vamos apenas selecionar o tipo `2` e ler o desafio de 16 bytes.
+
+### 1. No `VncClient.kt`
+
+Depois deste trecho:
+
+```kotlin
+println(
+    "VncClient: Security Types = " +
+        securityTypes.joinToString(", ") {
+            (it.toInt() and 0xFF).toString()
+        }
+)
+```
+
+adicione:
+
+```kotlin
+val hasVncAuthentication = securityTypes.any {
+    (it.toInt() and 0xFF) == 2
+}
+
+if (!hasVncAuthentication) {
+    throw Exception("VNC Authentication (2) não disponível")
+}
+
+output.write(2)
+output.flush()
+
+println("VncClient: Security Type selecionado = 2")
+```
+
+Depois disso, o servidor deverá enviar o **challenge**, que tem exatamente 16 bytes.
+
+Agora adicione:
+
+```kotlin
+val challenge = ByteArray(16)
+
+var challengeOffset = 0
+
+while (challengeOffset < challenge.size) {
+    val count = input.read(
+        challenge,
+        challengeOffset,
+        challenge.size - challengeOffset
+    )
+
+    if (count < 0) {
+        throw Exception(
+            "Conexão encerrada ao ler challenge"
+        )
+    }
+
+    challengeOffset += count
+}
+
+println(
+    "VncClient: challenge recebido = " +
+        challenge.joinToString(" ") {
+            "%02X".format(it.toInt() and 0xFF)
+        }
+)
+```
+
+O fluxo ficará:
+
+```text
+RFB 003.008
+       ↓
+Security Types
+       ↓
+19, 2
+       ↓
+cliente escolhe 2
+       ↓
+servidor envia 16 bytes
+       ↓
+challenge
+```
+
+### 2. Compile
+
+```bash
+./gradlew assembleDebug
+```
+
+Se der **BUILD SUCCESSFUL**, me diga `foi`.
+
+Ainda **não vamos implementar a senha**. Primeiro vamos confirmar que conseguimos chegar até o challenge.
+
+---
+$$$$
+
+Perfeito. **Autenticação VNC funcionou.** 🎯
+
+O ponto decisivo é:
+
+```text
+VncClient: SecurityResult = 0
+```
+
+Agora já temos um cliente que consegue:
+
+```text
+TCP
+ ↓
+RFB 003.008
+ ↓
+Security Types
+ ↓
+VNC Authentication
+ ↓
+DES
+ ↓
+SecurityResult = 0
+```
+
+O próximo passo é o **ClientInit + ServerInit**, que finalmente nos dará as informações do framebuffer remoto: largura, altura e formato dos pixels.
+
+Vamos fazer só a primeira parte agora: enviar o `ClientInit`.
+
+Depois do `SecurityResult = 0`, o cliente precisa enviar **1 byte**:
+
+```text
+Shared Flag
+```
+
+Vamos usar `1`, permitindo que o servidor compartilhe a sessão.
+
+### Adicione depois do `SecurityResult`
+
+Logo após:
+
+```kotlin
+println(
+    "VncClient: SecurityResult = $securityResult"
+)
+```
+
+adicione:
+
+```kotlin
+if (securityResult != 0) {
+    throw Exception(
+        "Autenticação VNC falhou: $securityResult"
+    )
+}
+
+output.write(1)
+output.flush()
+
+println(
+    "VncClient: ClientInit enviado"
+)
+```
+
+O fluxo será:
+
+```text
+SecurityResult = 0
+        ↓
+ClientInit
+        ↓
+Shared Flag = 1
+```
+
+Compile:
+
+```bash
+./gradlew assembleDebug
+```
+
+Se der `BUILD SUCCESSFUL`, instale e teste:
+
+```bash
+./gradlew installDebug
+```
+
+Depois me mande o log.
+
+O que queremos ver agora é:
+
+```text
+VncClient: SecurityResult = 0
+VncClient: ClientInit enviado
+```
+
+Ainda **não vamos ler o framebuffer** neste passo.
+
+---
+$$$$
 @@@@
+
+
 
 ```bash
 
@@ -778,13 +1112,16 @@ cd /home/segodimo/05android/vncsbs/ | term
 adb shell am start -n com.rec.vncsbs/.MainActivity && adb logcat -c && adb logcat -v threadtime | grep -E "VncClient"
 
 
-adb logcat -c && adb logcat -v threadtime | grep -E "VncClient"
 
 adb shell am start -n com.rec.vncsbs/.MainActivity 
-adb shell am force-stop com.rec.vncsbs                  
+adb shell am force-stop com.rec.vncsbs
 
 
 x0vncserver -display :0 -passwordfile ~/.vnc/passwd -rfbport 5900            
+
+./gradlew installDebug && adb shell am start -n com.rec.vncsbs/.MainActivity && adb logcat -c && adb logcat -v threadtime | grep -E "VncClient"
+adb shell am start -n com.rec.vncsbs/.MainActivity && adb logcat -c && adb logcat -v threadtime | grep -E "VncClient"
+adb logcat -c && adb logcat -v threadtime | grep -E "VncClient"
 
 ```
 

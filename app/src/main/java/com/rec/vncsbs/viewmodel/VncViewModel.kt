@@ -17,7 +17,8 @@ class VncViewModel : ViewModel() {
 fun testVncConnection() {
     vncClient.connect(
         host = "192.168.31.127",
-        port = 5900
+        port = 5900,
+        password = "987654"
     )
 }
 
@@ -42,7 +43,8 @@ fun testVncConnection() {
     ) {
         vncClient.connect(
             host = host,
-            port = port
+            port = port,
+            password = ""
         )
     }
 
