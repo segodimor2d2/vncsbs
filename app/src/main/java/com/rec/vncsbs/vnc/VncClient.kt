@@ -421,6 +421,14 @@ class VncClient(
                     rectangleCountBytes
                 )
 
+                println(
+                    "VncClient: rectangleCount bytes = " +
+                        "%02X %02X".format(
+                            rectangleCountBytes[0].toInt() and 0xFF,
+                            rectangleCountBytes[1].toInt() and 0xFF
+                        )
+                )
+
                 val rectangleCount =
                     ((rectangleCountBytes[0].toInt() and 0xFF) shl 8) or
                     (rectangleCountBytes[1].toInt() and 0xFF)
@@ -431,87 +439,115 @@ class VncClient(
 
                 if (rectangleCount > 0) {
 
-                    val rectangleHeader = ByteArray(12)
-
-                    readFully(
-                        input,
-                        rectangleHeader
-                    )
-
-                    val rectX =
-                        ((rectangleHeader[0].toInt() and 0xFF) shl 8) or
-                        (rectangleHeader[1].toInt() and 0xFF)
-
-                    val rectY =
-                        ((rectangleHeader[2].toInt() and 0xFF) shl 8) or
-                        (rectangleHeader[3].toInt() and 0xFF)
-
-                    val rectWidth =
-                        ((rectangleHeader[4].toInt() and 0xFF) shl 8) or
-                        (rectangleHeader[5].toInt() and 0xFF)
-
-                    val rectHeight =
-                        ((rectangleHeader[6].toInt() and 0xFF) shl 8) or
-                        (rectangleHeader[7].toInt() and 0xFF)
-
-                    val encoding =
-                        ((rectangleHeader[8].toInt() and 0xFF) shl 24) or
-                        ((rectangleHeader[9].toInt() and 0xFF) shl 16) or
-                        ((rectangleHeader[10].toInt() and 0xFF) shl 8) or
-                        (rectangleHeader[11].toInt() and 0xFF)
+                    val framebufferPixels =
+                        ByteArray(framebufferWidth * framebufferHeight * 4)
 
                     println(
-                        "VncClient: rectangle 0 = " +
-                            "${rectX},${rectY} " +
-                            "${rectWidth}x${rectHeight} " +
-                            "encoding=$encoding"
+                        "VncClient: iniciando leitura de $rectangleCount rectangles"
                     )
 
-                    if (encoding == 0) {
+                    for (rectangleIndex in 0 until rectangleCount) {
+
+                        println(
+                            "VncClient: iniciando rectangle $rectangleIndex"
+                        )
+
+                        val rectangleHeader = ByteArray(12)
+
+                        readFully(
+                            input,
+                            rectangleHeader
+                        )
+
+                        println(
+                            "VncClient: header $rectangleIndex = " +
+                                rectangleHeader.joinToString(" ") {
+                                    "%02X".format(it.toInt() and 0xFF)
+                                }
+                        )
+
+                        val rectX =
+                            ((rectangleHeader[0].toInt() and 0xFF) shl 8) or
+                            (rectangleHeader[1].toInt() and 0xFF)
+
+                        val rectY =
+                            ((rectangleHeader[2].toInt() and 0xFF) shl 8) or
+                            (rectangleHeader[3].toInt() and 0xFF)
+
+                        val rectWidth =
+                            ((rectangleHeader[4].toInt() and 0xFF) shl 8) or
+                            (rectangleHeader[5].toInt() and 0xFF)
+
+                        val rectHeight =
+                            ((rectangleHeader[6].toInt() and 0xFF) shl 8) or
+                            (rectangleHeader[7].toInt() and 0xFF)
+
+                        val encoding =
+                            ((rectangleHeader[8].toInt() and 0xFF) shl 24) or
+                            ((rectangleHeader[9].toInt() and 0xFF) shl 16) or
+                            ((rectangleHeader[10].toInt() and 0xFF) shl 8) or
+                            (rectangleHeader[11].toInt() and 0xFF)
+
+                        println(
+                            "VncClient: rectangle $rectangleIndex = " +
+                                "${rectX},${rectY} " +
+                                "${rectWidth}x${rectHeight} " +
+                                "encoding=$encoding"
+                        )
+
+                        if (encoding != 0) {
+                            throw Exception(
+                                "Encoding não suportado: $encoding"
+                            )
+                        }
 
                         val pixelBytes =
                             rectWidth * rectHeight * 4
 
-                        println(
-                            "VncClient: lendo pixels rectangle 0 = " +
-                                "$pixelBytes bytes"
-                        )
-
                         val pixels = ByteArray(pixelBytes)
 
-                        var totalRead = 0
+                        readFully(
+                            input,
+                            pixels
+                        )
 
-                        while (totalRead < pixels.size) {
+                        for (y in 0 until rectHeight) {
 
-                            val count = input.read(
+                            val sourceOffset =
+                                y * rectWidth * 4
+
+                            val destinationOffset =
+                                ((rectY + y) * framebufferWidth + rectX) * 4
+
+                            System.arraycopy(
                                 pixels,
-                                totalRead,
-                                pixels.size - totalRead
-                            )
-
-                            if (count < 0) {
-                                throw Exception(
-                                    "Conexão encerrada ao ler pixels: " +
-                                        "$totalRead/$pixelBytes bytes"
-                                )
-                            }
-
-                            totalRead += count
-
-                            println(
-                                "VncClient: pixels rectangle 0 = " +
-                                    "$totalRead/$pixelBytes bytes"
+                                sourceOffset,
+                                framebufferPixels,
+                                destinationOffset,
+                                rectWidth * 4
                             )
                         }
 
                         println(
-                            "VncClient: pixels rectangle 0 recebidos = " +
-                                "$totalRead bytes"
+                            "VncClient: rectangle $rectangleIndex copiado para framebuffer"
                         )
-
                     }
-                }
 
+                    println(
+                        "VncClient: framebuffer completo = " +
+                            "${framebufferWidth}x${framebufferHeight} " +
+                            "${framebufferPixels.size} bytes"
+                    )
+
+                    onFrame(
+                        RemoteFrame(
+                            width = framebufferWidth,
+                            height = framebufferHeight,
+                            pixels = framebufferPixels
+                        )
+                    )
+
+                }
 
             } catch (e: Exception) {
                 println(

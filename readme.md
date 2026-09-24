@@ -1367,7 +1367,161 @@ A partir desses 4 bytes vamos continuar o parser **sem mais tentativas cegas**.
 ---
 $$$$
 
-comunicação VNC funcionando
+comunicação VNC funcionando agora toca ler os 36 rectangles
+
+---
+$$$$
+
+
+Sim — esse log deixa o problema **bem localizado**.
+
+Os rectangles **30–34 estão corretos**. O parser quebra ao chegar no **35**.
+
+### O que o log mostra
+
+Até o rectangle 34:
+
+```text
+header 34 = 02 8F 02 E2 00 01 00 01 00 00 00 00
+rectangle 34 = 655,738 1x1 encoding=0
+rectangle 34 copiado para framebuffer
+```
+
+Tudo consistente:
+
+* `x = 655`
+* `y = 738`
+* `width = 1`
+* `height = 1`
+* `encoding = 0` → Raw
+* `1 × 1 × 4 = 4 bytes` de pixel
+
+Depois:
+
+```text
+iniciando rectangle 35
+header 35 = 03 00 00 00 00 00 00 68 61 64 62 20
+rectangle 35 = 768,0 0x104 encoding=1633968672
+```
+
+Isso **não é um header válido de rectangle**.
+
+O valor:
+
+```text
+68 61 64 62 20
+```
+
+é ASCII:
+
+```text
+h a d b [espaço]
+```
+
+Ou seja, o parser está lendo **dados que deveriam pertencer a outra coisa** como se fossem o header do rectangle 35.
+
+E há outro indício muito forte:
+
+```text
+03 00 00 00 00 00 00
+```
+
+interpretado como:
+
+```text
+x = 768
+y = 0
+width = 0
+height = 104
+```
+
+Isso obviamente não corresponde ao rectangle esperado.
+
+## Portanto, o problema mudou de lugar
+
+O contador está correto:
+
+```text
+00 24
+```
+
+= **36 rectangles**
+
+E os rectangles:
+
+```text
+0 ... 29
+30
+31
+32
+33
+34
+```
+
+estão sendo consumidos corretamente.
+
+O erro acontece **antes de tentar ler o header 35**, porque o offset do stream já está errado.
+
+### A hipótese mais provável
+
+O rectangle 34 é:
+
+```text
+1x1
+encoding=0
+```
+
+Então ele deve consumir **exatamente 4 bytes de pixel**.
+
+Precisamos verificar se o código realmente está consumindo esses 4 bytes **e somente esses 4 bytes**.
+
+Se houver qualquer diferença entre:
+
+```text
+bytes esperados = width * height * bytesPerPixel
+```
+
+e os bytes efetivamente lidos, o próximo `readFully()` começa no lugar errado e produz exatamente esse tipo de lixo.
+
+---
+
+### Eu faria agora só um teste
+
+Não mexeria ainda na arquitetura.
+
+No código que processa um rectangle `encoding == 0`, imediatamente **antes e depois** da leitura dos pixels do rectangle 34, coloque um log do número de bytes.
+
+Algo conceitualmente assim:
+
+```kotlin
+val bytesPerPixel = 4
+val expectedBytes = width * height * bytesPerPixel
+
+System.out.println(
+    "VncClient: rectangle $i RAW expectedBytes=$expectedBytes"
+)
+
+input.readFully(pixelBuffer)
+
+System.out.println(
+    "VncClient: rectangle $i RAW pixels lidos=$expectedBytes"
+)
+```
+
+Mas quero fazer isso **no seu código real**, porque nesse ponto é importante não introduzir uma segunda variável ou alterar a forma de leitura.
+
+Se você me mandar o trecho da função que faz:
+
+```text
+rectangle ...
+encoding == 0
+copiado para framebuffer
+```
+
+eu te digo **exatamente onde colocar os logs**, sem refatorar nada.
+
+O objetivo do próximo teste é simples: **provar que o rectangle 34 deixa o cursor exatamente no primeiro byte do header 35**.
+
 
 ---
 $$$$
@@ -1404,6 +1558,12 @@ x0vncserver -display :0 -passwordfile ~/.vnc/passwd -rfbport 5900
 ./gradlew installDebug && adb shell am start -n com.rec.vncsbs/.MainActivity && adb logcat -c && adb logcat -v threadtime | grep -E "VncClient"
 adb shell am start -n com.rec.vncsbs/.MainActivity && adb logcat -c && adb logcat -v threadtime | grep -E "VncClient"
 adb logcat -c && adb logcat -v threadtime | grep -E "VncClient"
+
+
+adb logcat -d -v threadtime | grep -E "framebuffer completo|rectangle 3[0-9] copiado"
+adb logcat -d -v threadtime | grep -E "iniciando rectangle|rectangle 3[0-9]|framebuffer completo"
+adb logcat -d -v threadtime | grep -E "header 3[0-5]|rectangle 3[0-5]"
+adb logcat -d -v threadtime | grep -E "rectangleCount bytes|rectangles =|header 3[0-5]|rectangle 3[0-5]"
 
 ```
 
