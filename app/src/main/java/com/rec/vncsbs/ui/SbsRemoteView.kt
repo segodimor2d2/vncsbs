@@ -1,17 +1,21 @@
 package com.rec.vncsbs.ui
 
-import androidx.compose.foundation.Canvas
+import android.graphics.Bitmap
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 
 data class RemoteFrame(
-    val testValue: Float = 0.5f
+    val width: Int = 0,
+    val height: Int = 0,
+    val pixels: ByteArray = ByteArray(0)
 )
 
 @Composable
@@ -45,46 +49,58 @@ private fun RemoteView(
     frame: RemoteFrame,
     modifier: Modifier = Modifier
 ) {
-    Canvas(
-        modifier = modifier
-    ) {
-        drawRect(
-            color = Color.DarkGray
-        )
-
-        drawCircle(
-            color = Color.White,
-            radius = size.minDimension * 0.18f,
-            center = Offset(
-                x = size.width / 2f,
-                y = size.height * frame.testValue
+    val bitmap = remember(frame) {
+        if (
+            frame.width > 0 &&
+            frame.height > 0 &&
+            frame.pixels.size >= frame.width * frame.height * 4
+        ) {
+            val colors = IntArray(
+                frame.width * frame.height
             )
-        )
 
-        drawLine(
-            color = Color.White,
-            start = Offset(
-                x = 0f,
-                y = size.height / 2f
-            ),
-            end = Offset(
-                x = size.width,
-                y = size.height / 2f
-            ),
-            strokeWidth = 4f
-        )
+            for (y in 0 until frame.height) {
+                for (x in 0 until frame.width) {
+                    val pixelIndex =
+                        (y * frame.width + x) * 4
 
-        drawLine(
-            color = Color.White,
-            start = Offset(
-                x = size.width / 2f,
-                y = 0f
-            ),
-            end = Offset(
-                x = size.width / 2f,
-                y = size.height
-            ),
-            strokeWidth = 4f
+                    val r =
+                        frame.pixels[pixelIndex].toInt() and 0xFF
+
+                    val g =
+                        frame.pixels[pixelIndex + 1].toInt() and 0xFF
+
+                    val b =
+                        frame.pixels[pixelIndex + 2].toInt() and 0xFF
+
+                    val a =
+                        frame.pixels[pixelIndex + 3].toInt() and 0xFF
+
+                    colors[y * frame.width + x] =
+                        (a shl 24) or
+                        (r shl 16) or
+                        (g shl 8) or
+                        b
+                }
+            }
+
+            Bitmap.createBitmap(
+                colors,
+                frame.width,
+                frame.height,
+                Bitmap.Config.ARGB_8888
+            )
+        } else {
+            null
+        }
+    }
+
+    if (bitmap != null) {
+        Image(
+            bitmap = bitmap.asImageBitmap(),
+            contentDescription = null,
+            modifier = modifier,
+            contentScale = ContentScale.FillBounds
         )
     }
 }

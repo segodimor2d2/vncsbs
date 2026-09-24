@@ -1,18 +1,61 @@
 package com.rec.vncsbs.viewmodel
 
 import androidx.lifecycle.ViewModel
+import com.rec.vncsbs.ui.RemoteFrame
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 
 data class VncUiState(
-    val connected: Boolean = false
+    val connected: Boolean = false,
+    val frame: RemoteFrame = RemoteFrame()
 )
 
 class VncViewModel : ViewModel() {
 
-    private val _uiState = MutableStateFlow(VncUiState())
+    private val _uiState = MutableStateFlow(
+        VncUiState(
+            frame = createTestFrame()
+        )
+    )
 
     val uiState: StateFlow<VncUiState> =
         _uiState.asStateFlow()
+
+    private fun createTestFrame(): RemoteFrame {
+
+        val width = 320
+        val height = 240
+
+        val pixels = ByteArray(
+            width * height * 4
+        )
+
+        for (y in 0 until height) {
+            for (x in 0 until width) {
+
+                val index = (y * width + x) * 4
+
+                val top = y < height / 2
+                val left = x < width / 2
+
+                val value = if (top == left) {
+                    255
+                } else {
+                    80
+                }
+
+                pixels[index] = value.toByte()       // R
+                pixels[index + 1] = value.toByte()   // G
+                pixels[index + 2] = value.toByte()   // B
+                pixels[index + 3] = 255.toByte()     // A
+            }
+        }
+
+        return RemoteFrame(
+            width = width,
+            height = height,
+            pixels = pixels
+        )
+    }
 }

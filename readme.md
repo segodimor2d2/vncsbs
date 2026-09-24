@@ -657,6 +657,27 @@ VncScreen
 
 Depois desse teste, o próximo passo será colocar a criação do `RemoteFrame` no `VncViewModel`, que é onde começa a ficar preparado para receber os frames do VNC.
 
+
+SbsRemoteView apenas recebe o frame fora
+
+---
+$$$$
+
+RemoteFrame
+    ↓
+ByteArray (pixels)
+    ↓
+Bitmap
+    ↓
+ImageBitmap
+    ↓
+Compose Image
+    ↓
+┌────────────┐  ┌────────────┐
+│   LEFT     │  │   RIGHT    │
+│   frame    │  │   frame    │
+└────────────┘  └────────────┘
+
 ---
 $$$$
 
