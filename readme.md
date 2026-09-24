@@ -1201,6 +1201,171 @@ E você fez certo em perguntar: não precisamos colocar uma tela de senha agora.
 
 ---
 $$$$
+
+
+Agora temos um dado muito mais útil. Esses 16 bytes:
+
+```text
+24 00 00 00 00 07 80 00 22 00 00 00 00 33 33 33
+```
+
+mostram que **não devemos continuar tratando cada leitura isolada como uma nova mensagem RFB sem considerar o stream inteiro**.
+
+E há uma pista forte nos bytes:
+
+```text
+00 00 00 00 07 80 00 22 00 00 00 00
+```
+
+Se começarmos a partir do segundo byte, isso tem exatamente a estrutura de um rectangle RAW:
+
+```text
+x       = 0
+y       = 0
+width   = 1920      // 0x0780
+height  = 34        // 0x0022
+encoding= 0         // RAW
+```
+
+E depois:
+
+```text
+33 33 33 ...
+```
+
+parece já ser o começo dos **pixels**.
+
+Então temos uma hipótese muito mais concreta: **o servidor está enviando dados de framebuffer, mas nosso cliente perdeu o alinhamento ao interpretar as mensagens**.
+
+Isso também explica por que o teste anterior mostrou:
+
+```text
+mensagem recebida = 0
+rectangles = 0
+```
+
+e depois apareceu algo que parece um rectangle.
+
+### Vamos fazer o próximo teste de forma correta
+
+Não vamos adicionar outro request.
+
+Vamos apenas **capturar o header inteiro da segunda resposta**, começando pela leitura que já temos, mas sem tentar interpretar ainda.
+
+Troque o código do segundo request por este bloco:
+
+```kotlin
+val secondHeader = ByteArray(4)
+
+readFully(
+    input,
+    secondHeader
+)
+
+println(
+    "VncClient: segunda resposta header = " +
+        secondHeader.joinToString(" ") {
+            "%02X".format(it.toInt() and 0xFF)
+        }
+)
+```
+
+Ou seja, remova este código que colocamos anteriormente:
+
+```kotlin
+val secondMessage = ByteArray(16)
+
+readFully(
+    input,
+    secondMessage
+)
+
+println(
+    "VncClient: próximos 16 bytes = " +
+        secondMessage.joinToString(" ") {
+            "%02X".format(it.toInt() and 0xFF)
+        }
+)
+```
+
+### Mas tem uma coisa ainda mais importante
+
+**Não faça outro `FramebufferUpdateRequest` depois disso.**
+
+A sequência que temos atualmente já é suficiente para o teste.
+
+Queremos descobrir exatamente qual é o próximo header no stream:
+
+```text
+XX XX XX XX
+```
+
+Se vier:
+
+```text
+00 00 00 01
+```
+
+temos:
+
+```text
+FramebufferUpdate
+padding
+1 rectangle
+```
+
+Se vier:
+
+```text
+00 00 00 00
+```
+
+é um update vazio.
+
+Se vier algo diferente, saberemos que existe outra mensagem/estado no stream.
+
+A especificação confirma que um `FramebufferUpdate` começa obrigatoriamente com:
+
+```text
+00
+padding
+U16 rectangle-count
+```
+
+e cada rectangle começa com `x`, `y`, `width`, `height` e `encoding`. ([GitHub][1])
+
+### Um ponto importante sobre o TigerVNC
+
+Também confirmei que o `x0vncserver` tem `CompareFB` e que `0` realmente desativa a comparação. ([GitHub][2])
+
+Portanto, **não precisamos continuar mexendo nessa configuração do servidor**. Agora o foco deve ser o parser do nosso cliente.
+
+Faça somente essa alteração, rode novamente:
+
+```bash
+./gradlew installDebug
+```
+
+e:
+
+```bash
+adb logcat -c
+adb logcat -v threadtime | grep -E "VncClient"
+```
+
+e me passe a linha:
+
+```text
+VncClient: segunda resposta header = ...
+```
+
+A partir desses 4 bytes vamos continuar o parser **sem mais tentativas cegas**.
+
+[1]: https://github.com/svn2github/tigervnc/blob/master/rfbproto/rfbproto.rst?utm_source=chatgpt.com "tigervnc/rfbproto/rfbproto.rst at master · svn2github/tigervnc · GitHub"
+[2]: https://github.com/TigerVNC/tigervnc/blob/master/unix/x0vncserver/x0vncserver.man?utm_source=chatgpt.com "tigervnc/unix/x0vncserver/x0vncserver.man at master · TigerVNC/tigervnc · GitHub"
+
+---
+$$$$
 @@@@
 
 

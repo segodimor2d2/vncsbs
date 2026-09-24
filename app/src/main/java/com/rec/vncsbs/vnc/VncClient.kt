@@ -404,6 +404,16 @@ class VncClient(
                     )
                 }
 
+                // Padding do FramebufferUpdate
+                val padding = input.read()
+
+                if (padding < 0) {
+                    throw Exception(
+                        "Conexão encerrada ao ler padding do FramebufferUpdate"
+                    )
+                }
+
+                // Número de rectangles
                 val rectangleCountBytes = ByteArray(2)
 
                 readFully(
@@ -447,20 +457,20 @@ class VncClient(
                     "VncClient: segundo FramebufferUpdateRequest enviado"
                 )
 
-                val secondMessageType = input.read()
+                val secondHeader = ByteArray(4)
 
-                if (secondMessageType < 0) {
-                    throw Exception(
-                        "Conexão encerrada ao ler segunda resposta"
-                    )
-                }
-
-                println(
-                    "VncClient: segunda mensagem recebida = " +
-                        secondMessageType
+                readFully(
+                    input,
+                    secondHeader
                 )
 
+                println(
+                    "VncClient: segunda resposta header = " +
+                        secondHeader.joinToString(" ") {
+                            "%02X".format(it.toInt() and 0xFF)
+                        }
 
+                )
 
 
             } catch (e: Exception) {
