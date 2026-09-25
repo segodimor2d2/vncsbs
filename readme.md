@@ -1547,6 +1547,942 @@ Eu faria só a remoção desse log agora, antes de avançarmos para a próxima f
 
 ---
 $$$$
+
+
+# adb logcat -d -v threadtime | grep "SbsRemoteView: BITMAP"
+
+Agora ficou bem claro.
+
+O `VncClient` **está recebendo frames muito rapidamente**:
+
+```text
+12.751
+12.768   +17 ms
+12.794   +26 ms
+12.816   +22 ms
+12.847   +31 ms
+...
+13.476
+13.686
+13.700
+13.722
+```
+
+Ou seja, o servidor pode estar entregando dezenas de atualizações por segundo.
+
+Depois aparece:
+
+```text
+13.722
+15.645   +1,9 s
+17.186   +1,5 s
+19.377   +2,2 s
+```
+
+Isso é um forte sinal de **backpressure**: a UI não consegue acompanhar tudo que está chegando.
+
+E temos a confirmação adicional de que cada renderização custa ~55–70 ms. Portanto, tentar renderizar **cada framebuffer recebido** não é sustentável.
+
+### Próximo teste: limitar a UI a ~30 FPS
+
+Não vamos mexer no VNC nem no protocolo.
+
+Vamos apenas fazer o `VncViewModel` **não publicar um novo estado se ainda não passou tempo suficiente**.
+
+Isso é um teste, não a solução definitiva.
+
+No `VncViewModel.kt`, você tem:
+
+```kotlin
+private val vncClient = VncClient { frame ->
+
+    println(
+        "VncViewModel: RECEBEU FRAME " +
+            "${frame.width}x${frame.height} " +
+            "${frame.pixels.size} bytes"
+    )
+
+    _uiState.value = _uiState.value.copy(
+        frame = frame
+    )
+
+    println(
+        "VncViewModel: STATE ATUALIZADO"
+    )
+}
+```
+
+Vamos colocar um intervalo de **33 ms**, aproximadamente 30 FPS.
+
+Primeiro, dentro da classe `VncViewModel`, antes de `vncClient`, adicione:
+
+```kotlin
+private var lastFrameTime = 0L
+```
+
+Depois substitua somente o callback por:
+
+```kotlin
+private val vncClient = VncClient { frame ->
+
+    println(
+        "VncViewModel: RECEBEU FRAME " +
+            "${frame.width}x${frame.height} " +
+            "${frame.pixels.size} bytes"
+    )
+
+    val now = System.currentTimeMillis()
+
+    if (now - lastFrameTime >= 33) {
+
+        lastFrameTime = now
+
+        _uiState.value = _uiState.value.copy(
+            frame = frame
+        )
+
+        println(
+            "VncViewModel: STATE ATUALIZADO"
+        )
+    }
+}
+```
+
+### O que esse teste deve fazer
+
+O VNC pode continuar recebendo:
+
+```text
+20 frames
+30 frames
+40 frames
+```
+
+por segundo.
+
+Mas o Compose receberá no máximo aproximadamente:
+
+```text
+30 frames/s
+```
+
+Isso deve diminuir bastante a pressão sobre:
+
+```text
+ByteArray.copyOf()
+        ↓
+StateFlow
+        ↓
+Compose
+        ↓
+IntArray
+        ↓
+Bitmap
+        ↓
+GPU
+```
+
+### Teste
+
+```bash
+./gradlew installDebug
+adb shell am force-stop com.rec.vncsbs
+adb shell am start -n com.rec.vncsbs/.MainActivity
+```
+
+Depois deixe rodar uns 10 segundos e:
+
+```bash
+adb logcat -d -v threadtime | grep -E "VncViewModel: (RECEBEU|STATE ATUALIZADO)|SbsRemoteView: BITMAP" | tail -60
+```
+
+O que quero verificar é se a tela fica **mais fluida e sem aquelas pausas de vários segundos**.
+
+Não mexemos em mais nada neste teste.
+
+---
+$$$$
+
+
+Sim — agora ficou bem mais claro o que está acontecendo.
+
+O seu log mostra um ponto importante: **o VNC está recebendo os rectangles continuamente**, mas cada rectangle está levando dezenas de ms para ser lido/copied:
+
+* rectangle 10: ~74 ms
+* 11: ~46 ms
+* 12: ~84 ms
+* 13: ~61 ms
+* 14: ~66 ms
+* 15: ~50 ms
+* 16: ~49 ms
+* 17: ~76 ms
+* etc.
+
+E são **dezenas de rectangles para montar um único framebuffer 1920×1080**.
+
+Então temos dois problemas acontecendo em sequência:
+
+```text
+VNC server
+   ↓
+RAW rectangles
+   ↓
+VncClient
+   ↓
+framebufferPixels.copyOf()   ← 8,3 MB
+   ↓
+RemoteFrame
+   ↓
+Channel
+   ↓
+BGRX → ARGB
+   ↓
+Bitmap 1920×1080
+   ↓
+2 Images
+```
+
+O ponto mais importante é este:
+
+### Estamos publicando um `RemoteFrame` depois de cada rectangle
+
+Se um framebuffer tem, por exemplo, 32 rectangles:
+
+```text
+rectangle 0 → RemoteFrame
+rectangle 1 → RemoteFrame
+rectangle 2 → RemoteFrame
+...
+rectangle 31 → RemoteFrame
+```
+
+Ou seja, estamos tentando converter **o framebuffer inteiro 32 vezes**, enquanto ele ainda está sendo montado.
+
+Isso explica muito bem o comportamento que você descreveu:
+
+> "o atraso vem por ciclos"
+
+E também:
+
+> "a tela fica vários segundos atrás"
+
+### Portanto, o próximo teste deve ser diferente
+
+Não devemos gerar `RemoteFrame` dentro do loop de rectangles.
+
+Precisamos primeiro:
+
+```text
+receber todos os rectangles
+        ↓
+montar framebuffer completo
+        ↓
+SOMENTE ENTÃO
+        ↓
+gerar 1 RemoteFrame
+```
+
+Isso é uma mudança pequena no conceito e provavelmente muito mais importante que continuar mexendo no Compose.
+
+**Mas não quero alterar isso ainda sem olhar o trecho exato do seu `VncClient.kt` que está fazendo o `onFrame(RemoteFrame(...))`.**
+
+Me mande este trecho:
+
+```bash
+grep -n -B 15 -A 15 "onFrame" app/src/main/java/com/rec/vncsbs/vnc/VncClient.kt
+```
+
+Assim eu te passo **somente a alteração necessária**, preservando o restante do cliente.
+
+---
+$$$$
+
+
+Perfeito. E revendo o trecho, preciso corrigir uma coisa da minha leitura anterior: **o `onFrame()` não está dentro do loop de rectangles**. Ele está depois de todos eles. Isso é bom.
+
+Ou seja, este trecho:
+
+```kotlin
+onFrame(
+    RemoteFrame(
+        width = framebufferWidth,
+        height = framebufferHeight,
+        pixels = framebufferPixels.copyOf()
+    )
+)
+```
+
+já acontece **uma vez por `FramebufferUpdate`**, não uma vez por rectangle.
+
+Então **não vamos mexer nisso**.
+
+O seu log, porém, revela outra coisa importante: o problema parece estar **antes do `onFrame()`**.
+
+Veja:
+
+```text
+22:27:49.933 rectangle 10 copiado
+22:27:49.979 rectangle 11 copiado
+22:27:50.063 rectangle 12 copiado
+22:27:50.123 rectangle 13 copiado
+...
+22:27:50.779 rectangle 25 copiado
+```
+
+O cliente está levando aproximadamente **0,8 segundo só para processar os rectangles 10–25**. E isso é apenas parte de um framebuffer.
+
+### O próximo teste deve ser no `VncClient`
+
+Temos muitos `println()` dentro do processamento dos rectangles. Por exemplo:
+
+```kotlin
+println("VncClient: iniciando rectangle $rectangleIndex")
+```
+
+```kotlin
+println("VncClient: header $rectangleIndex = ...")
+```
+
+```kotlin
+println("VncClient: rectangle $rectangleIndex = ...")
+```
+
+```kotlin
+println("VncClient: rectangle $rectangleIndex copiado para framebuffer")
+```
+
+Esses logs estão sendo executados **para cada rectangle**, enquanto estamos recebendo megabytes de RAW.
+
+E você já observou anteriormente que os logs deixavam o aplicativo consideravelmente mais lento.
+
+## Vamos fazer um teste bem pequeno
+
+**Não altere a lógica do VNC.**
+
+Vamos apenas retirar temporariamente os logs internos dos rectangles.
+
+No `VncClient.kt`, procure:
+
+```kotlin
+println("VncClient: iniciando rectangle $rectangleIndex")
+```
+
+e remova.
+
+Depois remova também o:
+
+```kotlin
+println(
+    "VncClient: header $rectangleIndex = " +
+        ...
+)
+```
+
+e:
+
+```kotlin
+println(
+    "VncClient: rectangle $rectangleIndex = " +
+        ...
+)
+```
+
+e:
+
+```kotlin
+println(
+    "VncClient: rectangle $rectangleIndex copiado para framebuffer"
+)
+```
+
+**Não remova estes dois:**
+
+```kotlin
+println(
+    "VncClient: framebuffer completo = " +
+        "${framebufferWidth}x${framebufferHeight} " +
+        "${framebufferPixels.size} bytes"
+)
+```
+
+e:
+
+```kotlin
+println(
+    "VncClient: enviando framebuffer para UI"
+)
+```
+
+Assim conseguimos continuar vendo quando um framebuffer inteiro terminou.
+
+### Depois
+
+Compile:
+
+```bash
+./gradlew assembleDebug
+```
+
+Se passar:
+
+```bash
+./gradlew installDebug
+adb shell am start -n com.rec.vncsbs/.MainActivity
+```
+
+E rode:
+
+```bash
+adb logcat -c && adb logcat -v threadtime | grep -E "VncClient: framebuffer|VncClient: enviando"
+```
+
+Esse teste é importante porque elimina uma variável enorme: **o custo do logging por rectangle**.
+
+Se depois disso o atraso cair bastante, achamos um gargalo concreto. Se continuar em segundos, aí vamos medir o tempo entre **fim do framebuffer → `onFrame()` → Bitmap**, sem adicionar logs por pixel/rectangle.
+
+---
+$$$$
+
+
+Agora temos a causa praticamente fechada.
+
+Veja:
+
+```text
+rectangle 0  = 68 ms
+rectangle 1  = 194 ms
+...
+rectangle 34 = 39 ms
+
+rectangles total = 3123 ms
+```
+
+Cada rectangle tem aproximadamente:
+
+```text
+1920 × 34 × 4 = 261120 bytes
+```
+
+Ou seja, o servidor está enviando o framebuffer como **35 pedaços horizontais**, e o cliente está esperando cada pedaço chegar pelo socket.
+
+O problema não é `copyOf()`, nem `Bitmap`, nem Compose. O gargalo está na quantidade de dados RAW que estamos pedindo.
+
+### O ponto crítico
+
+Você configurou:
+
+```kotlin
+setEncodings[4] = 0
+setEncodings[5] = 0
+setEncodings[6] = 0
+setEncodings[7] = 0
+```
+
+Isso significa:
+
+```text
+RAW
+```
+
+Com RAW, cada rectangle de `1920×34` precisa transmitir **261 KB**.
+
+35 rectangles ≈ **9 MB por atualização**.
+
+E seu log mostra que isso está chegando em aproximadamente **3,1 segundos**.
+
+---
+
+## Mas não vamos mudar encoding ainda
+
+Temos uma informação importante antes de fazer uma alteração maior.
+
+O servidor está aparentemente limitando cada rectangle a:
+
+```text
+1920 × 34
+```
+
+Isso sugere que ele está dividindo a tela em faixas horizontais. Pode ser comportamento do servidor/driver VNC, não necessariamente algo errado no cliente.
+
+O próximo teste deve ser bem simples: **medir a velocidade efetiva da transmissão**.
+
+Você já tem os dados necessários.
+
+Nesse primeiro FramebufferUpdate:
+
+```text
+~9 MB
+~3123 ms
+```
+
+Isso dá aproximadamente:
+
+```text
+9 MB / 3,1 s ≈ 2,9 MB/s
+```
+
+Então o telefone está recebendo o RAW a uma velocidade muito baixa para atualizar uma tela 1920×1080 em tempo real.
+
+### A solução provável
+
+Em vez de:
+
+```text
+RAW
+```
+
+vamos futuramente usar uma codificação VNC comprimida, por exemplo:
+
+```text
+ZRLE
+```
+
+ou:
+
+```text
+Hextile
+```
+
+Isso pode reduzir drasticamente a quantidade de dados transmitidos quando a tela tem regiões que não mudaram ou possuem áreas uniformes.
+
+**Mas isso exige implementar a decodificação correspondente no cliente.** Não quero simplesmente trocar:
+
+```kotlin
+SetEncodings = RAW
+```
+
+por `ZRLE` porque seu código atualmente faz:
+
+```kotlin
+if (encoding != 0) {
+    throw Exception(
+        "Encoding não suportado: $encoding"
+    )
+}
+```
+
+e portanto quebraria imediatamente.
+
+---
+
+### Antes disso, vamos fazer um teste ainda mais importante
+
+Seu cliente atualmente envia:
+
+```kotlin
+request[6] = framebufferWidth
+request[7] = ...
+request[8] = framebufferHeight
+request[9] = ...
+```
+
+e pede **a tela inteira a cada atualização**.
+
+O protocolo VNC incremental deveria permitir:
+
+```text
+primeiro request:
+incremental = false
+→ recebe tela inteira
+
+seguintes:
+incremental = true
+→ recebe somente regiões alteradas
+```
+
+Você já está fazendo isso corretamente:
+
+```kotlin
+request[1] = if (incremental) 1 else 0
+```
+
+Portanto, o servidor está decidindo quais rectangles enviar.
+
+E isso nos dá uma pista importante: **quando você move uma janela, o servidor realmente precisa transmitir grandes regiões alteradas**, e como estamos usando RAW, isso vira megabytes de dados.
+
+---
+
+## Próximo passo
+
+Eu **não mudaria código ainda**.
+
+Quero primeiro confirmar uma coisa: quando você fica completamente parado no desktop remoto, o servidor continua enviando esses rectangles grandes?
+
+Deixe o desktop remoto parado por uns **5 segundos**, sem mover mouse/janela, e rode:
+
+```bash
+adb logcat -c && adb logcat -v threadtime | grep -E "rectangles total|FramebufferUpdateRequest"
+```
+
+Se aparecer apenas o primeiro framebuffer e depois parar, o comportamento está correto.
+
+Se continuar aparecendo:
+
+```text
+rectangles total = ...
+```
+
+mesmo com a tela completamente parada, aí temos **outro problema no ciclo incremental** que devemos corrigir antes de pensar em compressão.
+
+---
+$$$$
+
+
+Isso confirma uma coisa importante: **mesmo parado, o servidor está enviando continuamente atualizações enormes**.
+
+A sequência foi:
+
+```text
+22:59:24  request full
+22:59:27  update → 3741 ms
+22:59:27  request incremental=true
+
+22:59:32  update → 4926 ms
+22:59:32  request incremental=true
+
+22:59:35  update → 2832 ms
+22:59:35  request incremental=true
+
+22:59:38  update → 3165 ms
+22:59:38  request incremental=true
+```
+
+Ou seja, **não é o `copyOf()`, Compose ou conversão para Bitmap que está causando esses ~3–5 segundos**. O gargalo está antes, na transmissão dos rectangles RAW.
+
+### O que está acontecendo
+
+Seu cliente pede:
+
+```text
+1920 × 1080
+incremental=true
+```
+
+mas o servidor continua entregando algo próximo de um framebuffer inteiro, dividido em vários rectangles horizontais.
+
+Como cada rectangle RAW usa:
+
+```text
+1920 × 34 × 4 ≈ 261 KB
+```
+
+e são dezenas deles, cada atualização chega a vários MB.
+
+Então o ciclo atual é aproximadamente:
+
+```text
+cliente
+   │
+   │ FramebufferUpdateRequest
+   ▼
+servidor
+   │
+   │ vários rectangles RAW
+   │ ~8 MB
+   ▼
+cliente
+   │
+   │ demora 3–5 s recebendo
+   ▼
+onFrame()
+   │
+   └── novo FramebufferUpdateRequest
+           │
+           └── servidor envia tudo novamente
+```
+
+### Portanto, o próximo passo não deve ser mexer na UI
+
+A arquitetura de recebimento está funcionando. O problema é que **RAW é extremamente caro para essa situação**.
+
+O próximo teste mais útil é descobrir **por que o servidor considera praticamente toda a tela modificada a cada atualização**.
+
+Antes de implementar ZRLE/Hextile, eu faria **um único teste pequeno**: verificar quantos rectangles e quantos bytes o servidor está enviando em cada atualização.
+
+No `VncClient.kt`, dentro do processamento do `FramebufferUpdate`, adicione apenas estes contadores:
+
+Antes do:
+
+```kotlin
+for (rectangleIndex in 0 until rectangleCount) {
+```
+
+coloque:
+
+```kotlin
+var totalRectangleBytes = 0L
+```
+
+E depois de:
+
+```kotlin
+val pixelBytes =
+    rectWidth * rectHeight * 4
+```
+
+adicione:
+
+```kotlin
+totalRectangleBytes += pixelBytes
+```
+
+Depois do `for` dos rectangles, antes de:
+
+```kotlin
+println(
+    "VncClient: rectangles total = " +
+        ...
+)
+```
+
+adicione:
+
+```kotlin
+println(
+    "VncClient: rectangles = $rectangleCount " +
+        "bytes = $totalRectangleBytes"
+)
+```
+
+Então rode novamente:
+
+```bash
+./gradlew installDebug
+adb shell am start -n com.rec.vncsbs/.MainActivity
+```
+
+e:
+
+```bash
+adb logcat -c && adb logcat -v threadtime | grep -E "rectangles =|rectangles total"
+```
+
+Deixe a área remota **completamente parada por alguns segundos**.
+
+O resultado que queremos saber é algo como:
+
+```text
+rectangles = 35 bytes = 8294400
+rectangles total = 3741 ms
+
+rectangles = 35 bytes = 8294400
+rectangles total = 4926 ms
+```
+
+Se for isso, fica confirmado que o servidor está mandando praticamente **8,3 MB completos repetidamente**, apesar de `incremental=true`.
+
+Aí temos uma informação muito mais precisa para decidir o próximo passo, sem mexer em várias partes do aplicativo ao mesmo tempo.
+
+---
+$$$$
+
+
+Perfeito. Agora temos a confirmação definitiva do gargalo.
+
+### O que os números mostram
+
+A tela é:
+
+```text
+1920 × 1080 × 4 = 8.294.400 bytes
+```
+
+E o servidor está enviando:
+
+```text
+35 rectangles → 8.294.400 bytes
+34 rectangles → 7.740.640 bytes
+38 rectangles → 7.923.360 bytes
+34 rectangles → 7.740.640 bytes
+38 rectangles → 7.923.360 bytes
+```
+
+Ou seja, **a cada atualização ele está transmitindo praticamente a tela inteira**.
+
+E isso acontece mesmo sem você mexer no desktop.
+
+O tempo:
+
+```text
+7.7–8.3 MB
+    ↓
+2.4–2.8 segundos
+```
+
+bate exatamente com o que vimos anteriormente.
+
+### Então não vamos mexer na UI
+
+Neste momento:
+
+* `copyOf()` → ~1–8 ms
+* `onFrame()` → ~1–10 ms
+* conversão Bitmap → ~50–70 ms
+* recebimento RAW → **2.4–2.8 s**
+
+O problema está claramente no caminho:
+
+```text
+VNC server
+    ↓
+RAW encoding
+    ↓
+~8 MB
+    ↓
+rede
+    ↓
+VncClient.readFully()
+```
+
+### E tem uma consequência importante
+
+O `incremental=true` **está sendo enviado corretamente**, mas isso não significa que o servidor necessariamente vai mandar apenas as áreas alteradas.
+
+Quem decide quais rectangles colocar no `FramebufferUpdate` é o servidor VNC.
+
+No nosso caso, ele está efetivamente tratando quase todo o framebuffer como atualizado.
+
+---
+
+## Próximo passo: não implementar ZRLE ainda
+
+Eu faria agora **um teste bem pequeno no protocolo**.
+
+Em vez de pedir:
+
+```text
+RAW
+```
+
+vamos pedir **Hextile**, mas **sem implementar Hextile ainda**.
+
+Isso serve para descobrir se o servidor aceita essa codificação e, principalmente, se ele passa a responder com rectangles diferentes.
+
+Atualmente você tem:
+
+```kotlin
+val setEncodings = ByteArray(8)
+
+setEncodings[0] = 2
+setEncodings[1] = 0
+setEncodings[2] = 0
+setEncodings[3] = 1
+
+setEncodings[4] = 0
+setEncodings[5] = 0
+setEncodings[6] = 0
+setEncodings[7] = 0
+```
+
+Isso significa:
+
+```text
+number-of-encodings = 1
+encoding = 0 (Raw)
+```
+
+**Não altere isso ainda.**
+
+O próximo passo é decidir qual encoding comprimido implementar. Para esse cliente, eu sugiro **ZRLE** como próximo alvo, porque ele é bem mais eficiente para uma tela inteira com muita informação e continua relativamente simples de implementar em comparação com Tight.
+
+Mas antes disso, há uma questão importante: **o servidor VNC que você está usando**.
+
+Se você me disser qual servidor está rodando em `192.168.31.127` — por exemplo `x11vnc`, `TigerVNC`, `wayvnc`, `RealVNC`, etc. — podemos verificar exatamente quais encodings ele suporta e como ele está configurado.
+
+Se você não souber, rode no servidor:
+
+```bash
+ps aux | grep -Ei 'vnc|x11vnc|tigervnc|wayvnc'
+```
+
+e me mande o resultado.
+
+**Não precisamos alterar o Android ainda.**
+
+---
+$$$$
+
+
+Agora temos um resultado **bem diferente e muito importante**.
+
+`-CompareFB 1` mudou o comportamento do servidor. Compare:
+
+### Antes — `-CompareFB 0`
+
+```text
+35 rectangles → 8,294,400 bytes → 2770 ms
+34 rectangles → 7,740,640 bytes → 2545 ms
+38 rectangles → 7,923,360 bytes → 2828 ms
+```
+
+Praticamente um framebuffer inteiro a cada atualização.
+
+### Agora — `-CompareFB 1`
+
+Depois do primeiro frame:
+
+```text
+49 rectangles →   832,392 bytes → 592 ms
+39 rectangles →   798,080 bytes → 420 ms
+38 rectangles →   645,568 bytes → 337 ms
+34 rectangles →   475,904 bytes → 209 ms
+45 rectangles →   312,640 bytes → 377 ms
+28 rectangles →   191,840 bytes → 126 ms
+22 rectangles →   188,192 bytes → 119 ms
+20 rectangles →   182,624 bytes →  51 ms
+...
+31 rectangles →   120,256 bytes →  22 ms
+31 rectangles →   120,704 bytes →  46 ms
+```
+
+Isso é uma redução de **ordem de grandeza** no volume transmitido.
+
+Por exemplo:
+
+```text
+8,294,400 bytes
+        ↓
+  120,256 bytes
+```
+
+aproximadamente **69× menos dados** naquele update.
+
+## Mas apareceu uma segunda coisa
+
+O servidor continua enviando updates mesmo aparentemente parado, só que agora os updates são pequenos.
+
+Isso pode ser normal dependendo do que está acontecendo no desktop — cursor, compositor, animações, etc. O ponto principal é que **o `CompareFB` resolveu o problema de enviar o framebuffer inteiro**.
+
+### Então eu faria agora uma coisa simples
+
+Não altere mais o código Android.
+
+Deixe:
+
+```bash
+x0vncserver \
+    -display :0 \
+    -passwordfile /home/segodimo/.vnc/passwd \
+    -rfbport 5900 \
+    -CompareFB 1
+```
+
+como configuração do servidor.
+
+Depois faça um teste visual no `vncsbs`:
+
+1. Conecte.
+2. Espere a imagem aparecer.
+3. **Não mexa absolutamente nada por uns 10 segundos.**
+4. Observe se o atraso que tínhamos de vários segundos desapareceu.
+5. Depois mova uma janela ou o mouse e veja como a atualização responde.
+
+Não precisamos mexer no `SbsRemoteView`, `VncViewModel` ou `VncClient` ainda.
+
+**A descoberta principal foi esta: o grande gargalo não era o Android; era `x0vncserver -CompareFB 0`.**
+
+---
+$$$$
 @@@@
 
 
@@ -1597,8 +2533,30 @@ adb logcat -v threadtime | grep -E "VncClient: (rectangles|iniciando rectangle|e
 adb logcat -c && adb logcat -v threadtime | grep -E "VncScreen|VncClient"
 adb logcat -c && adb logcat -v threadtime | grep -E "VncViewModel|VncClient"
 
+grep -E "SbsRemoteView|VncViewModel|VncClient"
+
+adb logcat -d -v threadtime | grep "SbsRemoteView" | tail -30
+
+adb logcat -d -v threadtime | grep "SbsRemoteView: BITMAP"
+
+
+adb shell am force-stop com.rec.vncsbs && adb shell am start -n com.rec.vncsbs/.MainActivity 
+adb shell am force-stop com.rec.vncsbs && adb shell am start -n com.rec.vncsbs/.MainActivity 
+
+adb logcat -d -v threadtime | grep -E "VncViewModel: (RECEBEU|STATE ATUALIZADO)|SbsRemoteView: BITMAP" | tail -60
+adb logcat -c && adb logcat -v threadtime | grep -E "VncClient|VncViewModel"
+adb logcat -c && adb logcat -v threadtime | grep -E "framebuffer completo|enviando framebuffer"
+adb logcat -c && adb logcat -v threadtime | grep -E "rectangles total|FramebufferUpdateRequest"
+
 
 ```
+
+x0vncserver \
+    -display :0 \
+    -passwordfile /home/segodimo/.vnc/passwd \
+    -rfbport 5900 \
+    -CompareFB 1
+
 
 ---
 $$$$

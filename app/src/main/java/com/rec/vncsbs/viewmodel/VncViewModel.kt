@@ -1,11 +1,14 @@
 package com.rec.vncsbs.viewmodel
 
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
 import com.rec.vncsbs.ui.RemoteFrame
 import com.rec.vncsbs.vnc.VncClient
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.launch
 
 data class VncUiState(
     val connected: Boolean = false,
@@ -14,13 +17,8 @@ data class VncUiState(
 
 class VncViewModel : ViewModel() {
 
-fun testVncConnection() {
-    vncClient.connect(
-        host = "192.168.31.127",
-        port = 5900,
-        password = "987654"
-    )
-}
+    private val frameChannel =
+        Channel<RemoteFrame>(Channel.CONFLATED)
 
     private val vncClient = VncClient { frame ->
 
@@ -30,13 +28,7 @@ fun testVncConnection() {
                 "${frame.pixels.size} bytes"
         )
 
-        _uiState.value = _uiState.value.copy(
-            frame = frame
-        )
-
-        println(
-            "VncViewModel: STATE ATUALIZADO"
-        )
+        frameChannel.trySend(frame)
     }
 
     private val _uiState = MutableStateFlow(
@@ -47,6 +39,30 @@ fun testVncConnection() {
 
     val uiState: StateFlow<VncUiState> =
         _uiState.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+
+            for (frame in frameChannel) {
+
+                _uiState.value = _uiState.value.copy(
+                    frame = frame
+                )
+
+                println(
+                    "VncViewModel: STATE ATUALIZADO"
+                )
+            }
+        }
+    }
+
+    fun testVncConnection() {
+        vncClient.connect(
+            host = "192.168.31.127",
+            port = 5900,
+            password = "987654"
+        )
+    }
 
     fun connect(
         host: String,

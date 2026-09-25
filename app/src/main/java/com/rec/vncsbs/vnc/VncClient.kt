@@ -1,3 +1,4 @@
+
 package com.rec.vncsbs.vnc
 
 import com.rec.vncsbs.ui.RemoteFrame
@@ -451,28 +452,21 @@ class VncClient(
 
                     if (rectangleCount > 0) {
 
+                        val rectanglesStart = System.currentTimeMillis()
+
                         println(
                             "VncClient: iniciando leitura de $rectangleCount rectangles"
                         )
 
-                        for (rectangleIndex in 0 until rectangleCount) {
+                        var totalRectangleBytes = 0L
 
-                            println(
-                                "VncClient: iniciando rectangle $rectangleIndex"
-                            )
+                        for (rectangleIndex in 0 until rectangleCount) {
 
                             val rectangleHeader = ByteArray(12)
 
                             readFully(
                                 input,
                                 rectangleHeader
-                            )
-
-                            println(
-                                "VncClient: header $rectangleIndex = " +
-                                    rectangleHeader.joinToString(" ") {
-                                        "%02X".format(it.toInt() and 0xFF)
-                                    }
                             )
 
                             val rectX =
@@ -513,13 +507,29 @@ class VncClient(
                             val pixelBytes =
                                 rectWidth * rectHeight * 4
 
+                            totalRectangleBytes += pixelBytes
+
                             val pixels =
                                 ByteArray(pixelBytes)
+
+                            val readStart = System.currentTimeMillis()
 
                             readFully(
                                 input,
                                 pixels
                             )
+
+                            val readTime =
+                                System.currentTimeMillis() - readStart
+
+                            if (readTime > 20) {
+                                println(
+                                    "VncClient: rectangle $rectangleIndex " +
+                                        "read = ${readTime} ms " +
+                                        "${rectWidth}x${rectHeight} " +
+                                        "$pixelBytes bytes"
+                                )
+                            }
 
                             for (y in 0 until rectHeight) {
 
@@ -538,28 +548,44 @@ class VncClient(
                                 )
                             }
 
-                            println(
-                                "VncClient: rectangle $rectangleIndex copiado para framebuffer"
-                            )
                         }
 
                         println(
-                            "VncClient: framebuffer completo = " +
-                                "${framebufferWidth}x${framebufferHeight} " +
-                                "${framebufferPixels.size} bytes"
+                            "VncClient: rectangles = $rectangleCount " +
+                                "bytes = $totalRectangleBytes"
                         )
 
                         println(
-                            "VncClient: enviando framebuffer para UI"
+                            "VncClient: rectangles total = " +
+                                (System.currentTimeMillis() - rectanglesStart) +
+                                " ms"
+                        )
+
+                        val frameStart = System.currentTimeMillis()
+
+                        val framePixels = framebufferPixels.copyOf()
+
+                        println(
+                            "VncClient: copyOf = " +
+                                (System.currentTimeMillis() - frameStart) +
+                                " ms"
                         )
 
                         onFrame(
                             RemoteFrame(
                                 width = framebufferWidth,
                                 height = framebufferHeight,
-                                pixels = framebufferPixels.copyOf()
+                                pixels = framePixels
                             )
                         )
+
+                        println(
+                            "VncClient: onFrame total = " +
+                                (System.currentTimeMillis() - frameStart) +
+                                " ms"
+                        )
+
+
                     }
 
                     incremental = true
