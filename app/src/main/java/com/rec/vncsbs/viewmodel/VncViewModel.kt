@@ -23,8 +23,19 @@ fun testVncConnection() {
 }
 
     private val vncClient = VncClient { frame ->
+
+        println(
+            "VncViewModel: RECEBEU FRAME " +
+                "${frame.width}x${frame.height} " +
+                "${frame.pixels.size} bytes"
+        )
+
         _uiState.value = _uiState.value.copy(
             frame = frame
+        )
+
+        println(
+            "VncViewModel: STATE ATUALIZADO"
         )
     }
 

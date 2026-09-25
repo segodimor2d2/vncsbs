@@ -1522,6 +1522,28 @@ eu te digo **exatamente onde colocar os logs**, sem refatorar nada.
 
 O objetivo do próximo teste é simples: **provar que o rectangle 34 deixa o cursor exatamente no primeiro byte do header 35**.
 
+---
+$$$$
+
+
+primeira imagem do vnc
+
+---
+$$$$
+
+A parte importante do VNC já está funcionando:
+
+✅ handshake
+✅ SetPixelFormat
+✅ SetEncodings
+✅ FramebufferUpdateRequest
+✅ múltiplos rectangles
+✅ montagem do framebuffer 1920×1080
+✅ RAW encoding
+✅ conversão correta BGRX → ARGB
+✅ renderização no Compose
+
+Eu faria só a remoção desse log agora, antes de avançarmos para a próxima funcionalidade.
 
 ---
 $$$$
@@ -1553,17 +1575,28 @@ adb shell am start -n com.rec.vncsbs/.MainActivity
 adb shell am force-stop com.rec.vncsbs
 
 
+adb shell am force-stop com.rec.vncsbs && adb shell am start -n com.rec.vncsbs/.MainActivity 
+
+
 x0vncserver -display :0 -passwordfile ~/.vnc/passwd -rfbport 5900            
 
 ./gradlew installDebug && adb shell am start -n com.rec.vncsbs/.MainActivity && adb logcat -c && adb logcat -v threadtime | grep -E "VncClient"
 adb shell am start -n com.rec.vncsbs/.MainActivity && adb logcat -c && adb logcat -v threadtime | grep -E "VncClient"
-adb logcat -c && adb logcat -v threadtime | grep -E "VncClient"
+adb logcat -c && adb logcat -v threadtime | grep -E "PixelFormat|primeiros pixels|rectangle 0"
+"VncClient"
 
 
 adb logcat -d -v threadtime | grep -E "framebuffer completo|rectangle 3[0-9] copiado"
 adb logcat -d -v threadtime | grep -E "iniciando rectangle|rectangle 3[0-9]|framebuffer completo"
 adb logcat -d -v threadtime | grep -E "header 3[0-5]|rectangle 3[0-5]"
 adb logcat -d -v threadtime | grep -E "rectangleCount bytes|rectangles =|header 3[0-5]|rectangle 3[0-5]"
+
+adb logcat -c
+adb logcat -v threadtime | grep -E "VncClient: (rectangles|iniciando rectangle|enviando framebuffer)"
+
+adb logcat -c && adb logcat -v threadtime | grep -E "VncScreen|VncClient"
+adb logcat -c && adb logcat -v threadtime | grep -E "VncViewModel|VncClient"
+
 
 ```
 

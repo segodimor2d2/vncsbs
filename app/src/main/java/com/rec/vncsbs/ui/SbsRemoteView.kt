@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
@@ -23,33 +22,12 @@ fun SbsRemoteView(
     frame: RemoteFrame,
     modifier: Modifier = Modifier
 ) {
-    Row(
-        modifier = modifier.fillMaxSize()
-    ) {
-        RemoteView(
-            frame = frame,
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxSize()
-                .padding(4.dp)
-        )
+    println(
+        "SbsRemoteView: FRAME ${frame.width}x${frame.height} " +
+        "${frame.pixels.size} bytes"
+    )
 
-        RemoteView(
-            frame = frame,
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxSize()
-                .padding(4.dp)
-        )
-    }
-}
-
-@Composable
-private fun RemoteView(
-    frame: RemoteFrame,
-    modifier: Modifier = Modifier
-) {
-    val bitmap = remember(frame) {
+    val bitmap = run {
         if (
             frame.width > 0 &&
             frame.height > 0 &&
@@ -61,6 +39,7 @@ private fun RemoteView(
 
             for (y in 0 until frame.height) {
                 for (x in 0 until frame.width) {
+
                     val pixelIndex =
                         (y * frame.width + x) * 4
 
@@ -95,11 +74,28 @@ private fun RemoteView(
     }
 
     if (bitmap != null) {
-        Image(
-            bitmap = bitmap.asImageBitmap(),
-            contentDescription = null,
-            modifier = modifier,
-            contentScale = ContentScale.FillBounds
-        )
+        Row(
+            modifier = modifier.fillMaxSize()
+        ) {
+            Image(
+                bitmap = bitmap.asImageBitmap(),
+                contentDescription = null,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxSize()
+                    .padding(4.dp),
+                contentScale = ContentScale.FillBounds
+            )
+
+            Image(
+                bitmap = bitmap.asImageBitmap(),
+                contentDescription = null,
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxSize()
+                    .padding(4.dp),
+                contentScale = ContentScale.FillBounds
+            )
+        }
     }
 }
