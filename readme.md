@@ -2549,7 +2549,67 @@ adb logcat -c && adb logcat -v threadtime | grep -E "framebuffer completo|envian
 adb logcat -c && adb logcat -v threadtime | grep -E "rectangles total|FramebufferUpdateRequest"
 
 
+
+cd /home/segodimo/05android/vncsbs/ | term
+e /home/segodimo/05android/vncsbs/readme.md
+/home/segodimo/05android/vncsbs/app/build.gradle.kts
+
 ```
+
+---
+$$$$
+
+
+
+feat: fonsize no menu e teclado <c-s> -/+ 
+
+
+quero que o visual dos dois lados conserve a proporção da tela real do vnc,
+a linha divisória ao redor deve ser preta e não brnca,
+eu quero que ao virar a tela na vertical apareça somente una das telas e ao virar na horizontal continue mostrando as duas telas,
+
+
+
+
+no menu vertical eu quero poder ter um controle para poder mudar o fonsize do terminal, também deve ter um valor no arquivo de default,
+quero que ao precionar no teclado ctrl+shift + e ctrl+shift - aumente e diminua o valor do fonsize do terminal na horizontal,
+eu vou continuar tendo a possibilidade de fazer o fontsize piscando na tela como ja funciona
+
+
+quero que ao iniciar o programa
+
+
+quero ter um menu com fundo negro transparente  com um controle que me permita aumentar e diminuir com +/- o padding geral da tela,
+quero adiciona tambem 2 controle de padding:
+    - no visual da esquerda o control pode mudar o paddin da direita e pode iniciar em 0,
+    - no visual da direita o control pode mudar o paddin da esquerda e pode iniciar em 0,
+
+
+o controle do padding geral debe cubrir dentro dele as duas telas e não cada tela individualmente
+
+
+quero adicionar um botão que vai aumentar e diminuir o padding las laterais esquerda e direita ta tela garal, ela não debe interferir com o controle do padding geral,
+
+quero adicionar um arquivo no projeto com os valores iniciais para os controles do menu,
+
+eu quero por no menu um botão de reset ao final dos botões de controle que vai carregar os valores iniciais e também usará os valores no primeiro uso
+os valores mudados no menu serão preservados ao fechar e reabrir o aplicativo
+
+ao clicar na tela com 2 dedos ao mesmo tempo ou ao usar recever ctrl+shift+w do teclado,
+
+
+
+quero que o paddin geral na vertical seja de 6dp ma que na horizontal conserve o que tinha selecionado na vertical
+
+- agora eu quero adiciona um control de padding com a seguiente regra:
+no terminal da esquerda o control pode mudar o paddin da direita e pode iniciar em 0,
+no terminal da direita o control pode mudar o paddin da esquerda e pode iniciar em 0,
+
+
+eu quero por o reset ao final dos botões,
+
+---
+$$$$
 
 x0vncserver \
     -display :0 \
@@ -2557,6 +2617,24 @@ x0vncserver \
     -rfbport 5900 \
     -CompareFB 1
 
+
+
+---
+$$$$
+
+```bash
+e app/src/main/res/values/menu_defaults.xml
+e app/src/main/java/com/rec/vncsbs/ui/VncScreen.kt
+```
+---
+$$$$
+
+o botão de VNC connect pode ir dentro do menu,
+o menu pode cobrir toda a tela, pode aumentar a transparência
+o menu abre e fecha como um toggle ao usar os dois dedos assim como o ctrl+shift+w do teclado,
+
+com ctrl+shift+j e ctrl+shift+k quero poder fazer zoom na imagem, j aumenta e k diminui,
+adicone um controle com as legendas j aumenta e k diminui para fazer o zoom,
 
 ---
 $$$$

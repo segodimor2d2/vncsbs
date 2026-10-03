@@ -1,8 +1,11 @@
 package com.rec.vncsbs.ui
 
 import android.graphics.Bitmap
+import android.content.res.Configuration
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
@@ -12,9 +15,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Dp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.withContext
@@ -28,8 +36,17 @@ data class RemoteFrame(
 @Composable
 fun SbsRemoteView(
     frame: RemoteFrame,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    screenPadding: Dp = 4.dp,
+    outerSidePadding: Dp = 0.dp,
+    leftViewRightPadding: Dp = 0.dp,
+    rightViewLeftPadding: Dp = 0.dp,
+    zoom: Float = 1f
 ) {
+    val screenCount = if (
+        LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
+    ) 2 else 1
+
     val frameChannel = remember {
         Channel<RemoteFrame>(Channel.CONFLATED)
     }
@@ -115,27 +132,40 @@ fun SbsRemoteView(
 
     if (currentBitmap != null) {
         Row(
-            modifier = modifier.fillMaxSize()
+            modifier = modifier
+                .fillMaxSize()
+                .background(Color.Black)
+                .padding(screenPadding)
+                .padding(horizontal = outerSidePadding)
         ) {
-            Image(
-                bitmap = currentBitmap.asImageBitmap(),
-                contentDescription = null,
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxSize()
-                    .padding(4.dp),
-                contentScale = ContentScale.FillBounds
-            )
-
-            Image(
-                bitmap = currentBitmap.asImageBitmap(),
-                contentDescription = null,
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxSize()
-                    .padding(4.dp),
-                contentScale = ContentScale.FillBounds
-            )
+            repeat(screenCount) { index ->
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxSize()
+                        .padding(
+                            start = if (screenCount == 2 && index == 1) {
+                                rightViewLeftPadding
+                            } else 0.dp,
+                            end = if (screenCount == 2 && index == 0) {
+                                leftViewRightPadding
+                            } else 0.dp
+                        )
+                        .clipToBounds()
+                ) {
+                    Image(
+                        bitmap = currentBitmap.asImageBitmap(),
+                        contentDescription = null,
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .graphicsLayer {
+                                scaleX = zoom
+                                scaleY = zoom
+                            },
+                        contentScale = ContentScale.Fit
+                    )
+                }
+            }
         }
     }
 }
