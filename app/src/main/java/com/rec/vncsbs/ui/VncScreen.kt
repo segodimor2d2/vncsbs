@@ -4,6 +4,8 @@ import androidx.compose.foundation.background
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Column
@@ -68,6 +70,11 @@ fun VncScreen(
         settingsStore.save(value)
     }
 
+    val paddingButtonColors = ButtonDefaults.textButtonColors(
+        contentColor = Color.White,
+        disabledContentColor = Color.White.copy(alpha = 0.35f)
+    )
+
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -90,63 +97,171 @@ fun VncScreen(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .background(Color.Black.copy(alpha = 0.45f)),
-                contentAlignment = Alignment.Center
+                    .background(Color.Black.copy(alpha = 0.5f)),
+                contentAlignment = Alignment.CenterStart
             ) {
-                Column(
+                Row(
                     modifier = Modifier
+                        .fillMaxSize()
                         .safeDrawingPadding()
                         .padding(top = 64.dp, bottom = 16.dp)
-                        .widthIn(max = 440.dp)
-                        .verticalScroll(rememberScrollState())
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
-                    TextButton(
-                        onClick = { viewModel.testVncConnection() },
-                        modifier = Modifier.padding(horizontal = 16.dp)
-                    ) { Text("VNC CONNECT", color = Color.White) }
-                    PaddingControl("Padding geral", settings.generalPadding) {
-                        updateSettings(settings.copy(generalPadding = it))
+                    Column(
+                        modifier = Modifier
+                            .widthIn(max = 440.dp)
+                            .verticalScroll(rememberScrollState())
+                    ) {
+
+                        TextButton(
+                            onClick = { updateSettings(settingsStore.defaults()) },
+                            modifier = Modifier.padding(horizontal = 0.dp)
+                        ) { Text("Reset", color = Color.White) }
+
+                        Row(
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+
+                            Text("allPad", color = Color.White)
+                            Text("${settings.generalPadding} dp", color = Color.White)
+                            TextButton(
+                                onClick = {
+                                    updateSettings(settings.copy(
+                                        generalPadding = (settings.generalPadding - 2).coerceAtLeast(0)
+                                    ))
+                                },
+                                enabled = settings.generalPadding > 0,
+                                colors = paddingButtonColors
+                            ) { Text("−") }
+                            TextButton(
+                                onClick = {
+                                    updateSettings(settings.copy(
+                                        generalPadding = (settings.generalPadding + 2).coerceAtMost(100)
+                                    ))
+                                },
+                                enabled = settings.generalPadding < 100,
+                                colors = paddingButtonColors
+                            ) { Text("+") }
+                        }
+
+                        Row(
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("LRpad", color = Color.White)
+                            Text("${settings.outerSidePadding} dp", color = Color.White)
+                            TextButton(
+                                onClick = {
+                                    updateSettings(settings.copy(
+                                        outerSidePadding = (settings.outerSidePadding - 2).coerceAtLeast(0)
+                                    ))
+                                },
+                                enabled = settings.outerSidePadding > 0,
+                                colors = paddingButtonColors
+                            ) { Text("−") }
+                            TextButton(
+                                onClick = {
+                                    updateSettings(settings.copy(
+                                        outerSidePadding = (settings.outerSidePadding + 2).coerceAtMost(100)
+                                    ))
+                                },
+                                enabled = settings.outerSidePadding < 100,
+                                colors = paddingButtonColors
+                            ) { Text("+") }
+                        }
+
+                        Row(
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("L-padR", color = Color.White)
+                            Text("${settings.leftViewRightPadding} dp", color = Color.White)
+                            TextButton(
+                                onClick = {
+                                    updateSettings(settings.copy(
+                                        leftViewRightPadding = (settings.leftViewRightPadding - 2).coerceAtLeast(0)
+                                    ))
+                                },
+                                enabled = settings.leftViewRightPadding > 0,
+                                colors = paddingButtonColors
+                            ) { Text("−") }
+                            TextButton(
+                                onClick = {
+                                    updateSettings(settings.copy(
+                                        leftViewRightPadding = (settings.leftViewRightPadding + 2).coerceAtMost(100)
+                                    ))
+                                },
+                                enabled = settings.leftViewRightPadding < 100,
+                                colors = paddingButtonColors
+                            ) { Text("+") }
+                        }
+
+                        Row(
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("R-padL", color = Color.White)
+                            Text("${settings.rightViewLeftPadding} dp", color = Color.White)
+                            TextButton(
+                                onClick = {
+                                    updateSettings(settings.copy(
+                                        rightViewLeftPadding = (settings.rightViewLeftPadding - 2).coerceAtLeast(0)
+                                    ))
+                                },
+                                enabled = settings.rightViewLeftPadding > 0,
+                                colors = paddingButtonColors
+                            ) { Text("−") }
+                            TextButton(
+                                onClick = {
+                                    updateSettings(settings.copy(
+                                        rightViewLeftPadding = (settings.rightViewLeftPadding + 2).coerceAtMost(100)
+                                    ))
+                                },
+                                enabled = settings.rightViewLeftPadding < 100,
+                                colors = paddingButtonColors
+                            ) { Text("+") }
+                        }
+
                     }
-                    PaddingControl("Laterais externas", settings.outerSidePadding) {
-                        updateSettings(settings.copy(outerSidePadding = it))
-                    }
-                    PaddingControl("Tela esquerda: borda direita", settings.leftViewRightPadding) {
-                        updateSettings(settings.copy(leftViewRightPadding = it))
-                    }
-                    PaddingControl("Tela direita: borda esquerda", settings.rightViewLeftPadding) {
-                        updateSettings(settings.copy(rightViewLeftPadding = it))
-                    }
-                    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
-                        Text("Zoom: ${settings.zoomPercent}%", color = Color.White)
+                    Column(
+                        modifier = Modifier
+                            .widthIn(max = 440.dp)
+                            .verticalScroll(rememberScrollState())
+                    ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
+
+                            Text("Zoom: ${settings.zoomPercent}%", color = Color.White)
+
                             TextButton(
                                 onClick = { changeZoom.value(10) },
                                 enabled = settings.zoomPercent < 400
-                            ) { Text("J aumenta", color = Color.White) }
+                            ) { Text("CSj+", color = Color.White) }
+
                             TextButton(
                                 onClick = { changeZoom.value(-10) },
                                 enabled = settings.zoomPercent > 25
-                            ) { Text("K diminui", color = Color.White) }
+                            ) { Text("CSk-", color = Color.White) }
+
                         }
-                        Text("Ctrl+Shift+J / Ctrl+Shift+K", color = Color.White)
                     }
-                    TextButton(
-                        onClick = { updateSettings(settingsStore.defaults()) },
-                        modifier = Modifier.padding(horizontal = 16.dp)
-                    ) { Text("Reset", color = Color.White) }
                 }
             }
         }
 
-        TextButton(
-            onClick = { toggleMenu.value() },
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .safeDrawingPadding()
-                .padding(8.dp)
-                .background(Color.Black.copy(alpha = 0.45f))
-        ) {
-            Text(if (menuExpanded) "Fechar menu" else "Menu", color = Color.White)
+        if (menuExpanded) {
+
+            TextButton(
+
+                onClick = { viewModel.testVncConnection() },
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .safeDrawingPadding()
+                    .padding(8.dp)
+                    .background(Color.Black.copy(alpha = 0.5f))
+
+            ) { Text("VNC CONNECT", color = Color.White) }
         }
     }
 }
@@ -168,27 +283,3 @@ private fun Modifier.toggleMenuWithTwoFingers(onToggle: () -> Unit): Modifier =
             } while (event.changes.any { it.pressed })
         }
     }
-
-@Composable
-private fun PaddingControl(label: String, value: Int, onValueChange: (Int) -> Unit) {
-    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
-        Text(label, color = Color.White)
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            val colors = ButtonDefaults.textButtonColors(
-                contentColor = Color.White,
-                disabledContentColor = Color.White.copy(alpha = 0.35f)
-            )
-            TextButton(
-                onClick = { onValueChange((value - 2).coerceAtLeast(0)) },
-                enabled = value > 0,
-                colors = colors
-            ) { Text("−") }
-            Text("$value dp", color = Color.White)
-            TextButton(
-                onClick = { onValueChange((value + 2).coerceAtMost(100)) },
-                enabled = value < 100,
-                colors = colors
-            ) { Text("+") }
-        }
-    }
-}

@@ -2625,6 +2625,11 @@ $$$$
 ```bash
 e app/src/main/res/values/menu_defaults.xml
 e app/src/main/java/com/rec/vncsbs/ui/VncScreen.kt
+
+
+./gradlew installDebug && adb shell am start -n com.rec.vncsbs/.MainActivity && adb logcat -c && adb logcat -v threadtime | grep -E "VncClient"
+
+./gradlew installDebug && adb shell am start -n com.rec.vncsbs/.MainActivity
 ```
 ---
 $$$$
