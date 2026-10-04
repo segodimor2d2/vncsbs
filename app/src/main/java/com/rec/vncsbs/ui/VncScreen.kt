@@ -61,16 +61,25 @@ fun VncScreen(
         )
         settingsStore.save(settings)
     }
+    val changePanSensitivity = rememberUpdatedState { delta: Int ->
+        settings = settings.copy(
+            panSensitivity = (settings.panSensitivity.toLong() + delta)
+                .coerceIn(10L, Int.MAX_VALUE.toLong()).toInt()
+        )
+        settingsStore.save(settings)
+    }
     BackHandler(enabled = menuExpanded) { menuExpanded = false }
     DisposableEffect(context) {
         val activity = context as? MainActivity
         activity?.onToggleMenu = { toggleMenu.value() }
         activity?.onZoomChange = { changeZoom.value(it) }
         activity?.onPanChange = { dx, dy -> changePan.value(dx, dy) }
+        activity?.onPanSensitivityChange = { changePanSensitivity.value(it) }
         onDispose {
             activity?.onToggleMenu = null
             activity?.onZoomChange = null
             activity?.onPanChange = null
+            activity?.onPanSensitivityChange = null
         }
     }
 
@@ -285,6 +294,19 @@ fun VncScreen(
                                 "panX : ${settings.panX}, panY : ${settings.panY}",
                                 color = Color.White
                             )
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            TextButton(
+                                onClick = { changePanSensitivity.value(10) },
+                                enabled = settings.panSensitivity <= Int.MAX_VALUE - 10,
+                                colors = paddingButtonColors
+                            ) { Text("CSy+") }
+                            TextButton(
+                                onClick = { changePanSensitivity.value(-10) },
+                                enabled = settings.panSensitivity > 10,
+                                colors = paddingButtonColors
+                            ) { Text("CSo−") }
+                            Text("sensibilidade pan : ${settings.panSensitivity} dp", color = Color.White)
                         }
                     }
                 }

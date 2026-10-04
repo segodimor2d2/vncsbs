@@ -2630,6 +2630,8 @@ e app/src/main/java/com/rec/vncsbs/ui/VncScreen.kt
 ./gradlew installDebug && adb shell am start -n com.rec.vncsbs/.MainActivity && adb logcat -c && adb logcat -v threadtime | grep -E "VncClient"
 
 ./gradlew installDebug && adb shell am start -n com.rec.vncsbs/.MainActivity
+
+adb shell am start -n com.rec.vncsbs/.MainActivity
 ```
 ---
 $$$$
@@ -2640,6 +2642,20 @@ o menu abre e fecha como um toggle ao usar os dois dedos assim como o ctrl+shift
 
 com ctrl+shift+j e ctrl+shift+k quero poder fazer zoom na imagem, j aumenta e k diminui,
 adicone um controle com as legendas j aumenta e k diminui para fazer o zoom,
+
+
+quero substituit ctrl+shift+j e ctrl+shift+k por ctrl+shift+u e ctrl+shift+i,
+quero que ctrl+shift+j faça pan de imagem para baixo,
+quero que ctrl+shift+k faça pan de imagem para cima,
+quero que ctrl+shift+h faça pan de imagem para esquerda,
+quero que ctrl+shift+l faça pan de imagem para direita,
+os controles dos lados vao existir embaixo do controle de zoom,
+
+
+quero ter um controle para aumentar o diminuir a sensibilidade do pan que pode aumentar de 10 em 10
+
+quero que ctrl+shift+o faça panSensitivity de imagem para baixo,
+quero que ctrl+shift+y faça panSensitivity de imagem para cima,
 
 ---
 $$$$
