@@ -54,14 +54,20 @@ fun VncScreen(
         settings = settings.copy(zoomPercent = (settings.zoomPercent + delta).coerceIn(25, 400))
         settingsStore.save(settings)
     }
+    val changePan = rememberUpdatedState { dx: Int, dy: Int ->
+        settings = settings.copy(panX = settings.panX + dx, panY = settings.panY + dy)
+        settingsStore.save(settings)
+    }
     BackHandler(enabled = menuExpanded) { menuExpanded = false }
     DisposableEffect(context) {
         val activity = context as? MainActivity
         activity?.onToggleMenu = { toggleMenu.value() }
         activity?.onZoomChange = { changeZoom.value(it) }
+        activity?.onPanChange = { dx, dy -> changePan.value(dx, dy) }
         onDispose {
             activity?.onToggleMenu = null
             activity?.onZoomChange = null
+            activity?.onPanChange = null
         }
     }
 
@@ -89,7 +95,9 @@ fun VncScreen(
                 outerSidePadding = settings.outerSidePadding.dp,
                 leftViewRightPadding = settings.leftViewRightPadding.dp,
                 rightViewLeftPadding = settings.rightViewLeftPadding.dp,
-                zoom = settings.zoomPercent / 100f
+                zoom = settings.zoomPercent / 100f,
+                panX = settings.panX.dp,
+                panY = settings.panY.dp
             )
         }
 
@@ -117,15 +125,13 @@ fun VncScreen(
                         TextButton(
                             onClick = { updateSettings(settingsStore.defaults()) },
                             modifier = Modifier.padding(horizontal = 0.dp)
-                        ) { Text("Reset", color = Color.White) }
+                        ) { Text("reset ", color = Color.White) }
 
                         Row(
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
 
-                            Text("allPad", color = Color.White)
-                            Text("${settings.generalPadding} dp", color = Color.White)
                             TextButton(
                                 onClick = {
                                     updateSettings(settings.copy(
@@ -144,14 +150,14 @@ fun VncScreen(
                                 enabled = settings.generalPadding < 100,
                                 colors = paddingButtonColors
                             ) { Text("+") }
+                            Text("allPad ", color = Color.White)
+                            Text("${settings.generalPadding} dp", color = Color.White)
                         }
 
                         Row(
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("LRpad", color = Color.White)
-                            Text("${settings.outerSidePadding} dp", color = Color.White)
                             TextButton(
                                 onClick = {
                                     updateSettings(settings.copy(
@@ -170,14 +176,14 @@ fun VncScreen(
                                 enabled = settings.outerSidePadding < 100,
                                 colors = paddingButtonColors
                             ) { Text("+") }
+                            Text("< pad > ", color = Color.White)
+                            Text("${settings.outerSidePadding} dp", color = Color.White)
                         }
 
                         Row(
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("L-padR", color = Color.White)
-                            Text("${settings.leftViewRightPadding} dp", color = Color.White)
                             TextButton(
                                 onClick = {
                                     updateSettings(settings.copy(
@@ -196,14 +202,14 @@ fun VncScreen(
                                 enabled = settings.leftViewRightPadding < 100,
                                 colors = paddingButtonColors
                             ) { Text("+") }
+                            Text("L-padR ", color = Color.White)
+                            Text("${settings.leftViewRightPadding} dp", color = Color.White)
                         }
 
                         Row(
                             modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("R-padL", color = Color.White)
-                            Text("${settings.rightViewLeftPadding} dp", color = Color.White)
                             TextButton(
                                 onClick = {
                                     updateSettings(settings.copy(
@@ -222,6 +228,8 @@ fun VncScreen(
                                 enabled = settings.rightViewLeftPadding < 100,
                                 colors = paddingButtonColors
                             ) { Text("+") }
+                            Text("R-padL ", color = Color.White)
+                            Text("${settings.rightViewLeftPadding} dp", color = Color.White)
                         }
 
                     }
@@ -232,18 +240,41 @@ fun VncScreen(
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
 
-                            Text("Zoom: ${settings.zoomPercent}%", color = Color.White)
+                            Text("zoom : ${settings.zoomPercent}%", color = Color.White)
 
                             TextButton(
                                 onClick = { changeZoom.value(10) },
                                 enabled = settings.zoomPercent < 400
-                            ) { Text("CSj+", color = Color.White) }
+                            ) { Text("CSu+", color = Color.White) }
 
                             TextButton(
                                 onClick = { changeZoom.value(-10) },
                                 enabled = settings.zoomPercent > 25
-                            ) { Text("CSk-", color = Color.White) }
+                            ) { Text("CSi-", color = Color.White) }
+                        }
 
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+
+                            Text(
+                                "pan : ${settings.panX}, ${settings.panY} dp",
+                                color = Color.White
+                            )
+
+                            TextButton(onClick = { changePan.value(20, 0) }) {
+                                Text("CSh ←", color = Color.White)
+                            }
+
+                            TextButton(onClick = { changePan.value(0, -20) }) {
+                                Text("CSj ↓", color = Color.White)
+                            }
+
+                            TextButton(onClick = { changePan.value(0, 20) }) {
+                                Text("CSk ↑", color = Color.White)
+                            }
+
+                            TextButton(onClick = { changePan.value(-20, 0) }) {
+                                Text("CSl →", color = Color.White)
+                            }
                         }
                     }
                 }

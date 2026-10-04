@@ -13,16 +13,22 @@ class MainActivity : ComponentActivity() {
     private lateinit var vncViewModel: VncViewModel
     var onToggleMenu: (() -> Unit)? = null
     var onZoomChange: ((Int) -> Unit)? = null
+    var onPanChange: ((Int, Int) -> Unit)? = null
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (event.isCtrlPressed && event.isShiftPressed && event.keyCode in setOf(
-                KeyEvent.KEYCODE_W, KeyEvent.KEYCODE_J, KeyEvent.KEYCODE_K
+                KeyEvent.KEYCODE_W, KeyEvent.KEYCODE_U, KeyEvent.KEYCODE_I,
+                KeyEvent.KEYCODE_J, KeyEvent.KEYCODE_K, KeyEvent.KEYCODE_H, KeyEvent.KEYCODE_L
             )) {
             if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
                 when (event.keyCode) {
                     KeyEvent.KEYCODE_W -> onToggleMenu?.invoke()
-                    KeyEvent.KEYCODE_J -> onZoomChange?.invoke(10)
-                    KeyEvent.KEYCODE_K -> onZoomChange?.invoke(-10)
+                    KeyEvent.KEYCODE_U -> onZoomChange?.invoke(10)
+                    KeyEvent.KEYCODE_I -> onZoomChange?.invoke(-10)
+                    KeyEvent.KEYCODE_J -> onPanChange?.invoke(0, 10)
+                    KeyEvent.KEYCODE_K -> onPanChange?.invoke(0, -10)
+                    KeyEvent.KEYCODE_H -> onPanChange?.invoke(-10, 0)
+                    KeyEvent.KEYCODE_L -> onPanChange?.invoke(10, 0)
                 }
             }
             return true

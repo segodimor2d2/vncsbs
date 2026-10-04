@@ -8,7 +8,9 @@ data class MenuSettings(
     val outerSidePadding: Int,
     val leftViewRightPadding: Int,
     val rightViewLeftPadding: Int,
-    val zoomPercent: Int
+    val zoomPercent: Int,
+    val panX: Int = 0,
+    val panY: Int = 0
 )
 
 class MenuSettingsStore(context: Context) {
@@ -30,7 +32,9 @@ class MenuSettingsStore(context: Context) {
             preferences.getInt("outer_sides", initial.outerSidePadding).coerceIn(0, 100),
             preferences.getInt("left_right", initial.leftViewRightPadding).coerceIn(0, 100),
             preferences.getInt("right_left", initial.rightViewLeftPadding).coerceIn(0, 100),
-            preferences.getInt("zoom_percent", initial.zoomPercent).coerceIn(25, 400)
+            preferences.getInt("zoom_percent", initial.zoomPercent).coerceIn(25, 400),
+            preferences.getInt("pan_x", initial.panX),
+            preferences.getInt("pan_y", initial.panY)
         )
     }
 
@@ -41,6 +45,8 @@ class MenuSettingsStore(context: Context) {
             .putInt("left_right", settings.leftViewRightPadding)
             .putInt("right_left", settings.rightViewLeftPadding)
             .putInt("zoom_percent", settings.zoomPercent)
+            .putInt("pan_x", settings.panX)
+            .putInt("pan_y", settings.panY)
             .apply()
     }
 }

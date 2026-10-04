@@ -41,7 +41,9 @@ fun SbsRemoteView(
     outerSidePadding: Dp = 0.dp,
     leftViewRightPadding: Dp = 0.dp,
     rightViewLeftPadding: Dp = 0.dp,
-    zoom: Float = 1f
+    zoom: Float = 1f,
+    panX: Dp = 0.dp,
+    panY: Dp = 0.dp
 ) {
     val screenCount = if (
         LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
@@ -161,6 +163,8 @@ fun SbsRemoteView(
                             .graphicsLayer {
                                 scaleX = zoom
                                 scaleY = zoom
+                                translationX = panX.toPx()
+                                translationY = panY.toPx()
                             },
                         contentScale = ContentScale.Fit
                     )
