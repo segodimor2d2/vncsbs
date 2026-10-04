@@ -288,58 +288,6 @@ fun VncScreen(
                         }
 
                     }
-                    Column(
-                        modifier = Modifier
-                            .widthIn(max = 440.dp)
-                            .verticalScroll(rememberScrollState())
-                    ) {
-
-
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("zoom : ${settings.zoomPercent}%", color = Color.White)
-                        }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-
-                            TextButton(
-                                onClick = { changeZoom.value(10) },
-                                enabled = settings.zoomPercent < 400
-                            ) { Text("CSu+", color = Color.White) }
-
-                            TextButton(
-                                onClick = { changeZoom.value(-10) },
-                                enabled = settings.zoomPercent > 25
-                            ) { Text("CSi-", color = Color.White) }
-
-                        }
-
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(
-                                "panX : ${settings.panX}, panY : ${settings.panY}",
-                                color = Color.White
-                            )
-                        }
-
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            TextButton(onClick = { changePan.value(0, 1) }) {
-                                Text("CSj ↑", color = Color.White)
-                            }
-
-                            TextButton(onClick = { changePan.value(0, -1) }) {
-                                Text("CSk ↓", color = Color.White)
-                            }
-                        }
-
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            TextButton(onClick = { changePan.value(1, 0) }) {
-                                Text("CSl ←", color = Color.White)
-                            }
-
-                            TextButton(onClick = { changePan.value(-1, 0) }) {
-                                Text("CSh →", color = Color.White)
-                            }
-                        }
-
-                    }
 
                     Column(
                         modifier = Modifier
@@ -393,7 +341,50 @@ fun VncScreen(
                             ) { Text("+") }
                             Text("tempo quieto : ${settings.gyroQuietTimeMs} ms", color = Color.White)
                         }
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+
+                            TextButton(
+                                onClick = { changeZoom.value(10) },
+                                enabled = settings.zoomPercent < 400
+                            ) { Text("CSu+", color = Color.White) }
+
+                            TextButton(
+                                onClick = { changeZoom.value(-10) },
+                                enabled = settings.zoomPercent > 25
+                            ) { Text("CSi-", color = Color.White) }
+
+                            Text(" zoom : ${settings.zoomPercent}%", color = Color.White)
+
+                        }
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                        }
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            TextButton(onClick = { changePan.value(0, 1) }) {
+                                Text("CSj ↑", color = Color.White)
+                            }
+
+                            TextButton(onClick = { changePan.value(0, -1) }) {
+                                Text("CSk ↓", color = Color.White)
+                            }
+                            Text( " panY : ${settings.panY}", color = Color.White)
+                        }
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            TextButton(onClick = { changePan.value(1, 0) }) {
+                                Text("CSl ←", color = Color.White)
+                            }
+
+                            TextButton(onClick = { changePan.value(-1, 0) }) {
+                                Text("CSh →", color = Color.White)
+                            }
+                            Text( " panX : ${settings.panX}", color = Color.White)
+                        }
+
                     }
+
                 }
             }
         }
