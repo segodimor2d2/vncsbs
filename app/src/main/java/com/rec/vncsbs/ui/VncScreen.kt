@@ -69,10 +69,19 @@ fun VncScreen(
         )
         settingsStore.save(settings)
     }
+    var gyroQuietElapsedMs by remember { mutableStateOf(0) }
     val latestSettings = rememberUpdatedState(settings)
     val gyroAvailable = GyroscopePanEffect(
         enabled = settings.gyroPanEnabled,
         sensitivity = settings.panSensitivity,
+        quietThreshold = settings.gyroQuietThreshold / 100f,
+        quietTimeMs = settings.gyroQuietTimeMs,
+        autoCenterEnabled = settings.gyroAutoCenterEnabled,
+        onCenter = {
+            settings = settings.copy(panX = 0, panY = 0)
+            settingsStore.save(settings)
+        },
+        onQuietTime = { gyroQuietElapsedMs = it },
         onPan = { dx, dy ->
             settings = settings.copy(panX = settings.panX + dx, panY = settings.panY + dy)
         },
@@ -276,14 +285,6 @@ fun VncScreen(
                             .verticalScroll(rememberScrollState())
                     ) {
 
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Switch(
-                                checked = settings.gyroPanEnabled && gyroAvailable,
-                                onCheckedChange = { updateSettings(settings.copy(gyroPanEnabled = it)) },
-                                enabled = gyroAvailable
-                            )
-                            Text(" giro (CSp)", color = Color.White)
-                        }
 
                         Row(verticalAlignment = Alignment.CenterVertically) {
 
@@ -298,6 +299,13 @@ fun VncScreen(
                             ) { Text("CSi-", color = Color.White) }
 
                             Text("zoom : ${settings.zoomPercent}%", color = Color.White)
+                        }
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                "panX : ${settings.panX}, panY : ${settings.panY}",
+                                color = Color.White
+                            )
                         }
 
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -318,23 +326,58 @@ fun VncScreen(
                             TextButton(onClick = { changePan.value(1, 0) }) {
                                 Text("CSl ←", color = Color.White)
                             }
-                            Text(
-                                "panX : ${settings.panX}, panY : ${settings.panY}",
-                                color = Color.White
-                            )
                         }
+
+                    }
+                    Column(
+                        modifier = Modifier
+                            .widthIn(max = 440.dp)
+                            .verticalScroll(rememberScrollState())
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Switch(
+                                checked = settings.gyroPanEnabled && gyroAvailable,
+                                onCheckedChange = { updateSettings(settings.copy(gyroPanEnabled = it)) },
+                                enabled = gyroAvailable
+                            )
+                            Text(" giro (CSp)", color = Color.White)
+
+                            Switch(
+                                checked = settings.gyroAutoCenterEnabled,
+                                onCheckedChange = {
+                                    updateSettings(settings.copy(gyroAutoCenterEnabled = it))
+                                }
+                            )
+                            Text("autoCent : $gyroQuietElapsedMs / ${settings.gyroQuietTimeMs} ms", color = Color.White)
+                        }
+
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             TextButton(
-                                onClick = { changePanSensitivity.value(10) },
-                                enabled = settings.panSensitivity <= Int.MAX_VALUE - 10,
+                                onClick = { updateSettings(settings.copy(gyroQuietThreshold = settings.gyroQuietThreshold - 1)) },
+                                enabled = settings.gyroQuietThreshold > 1,
                                 colors = paddingButtonColors
-                            ) { Text("CSy+") }
+                            ) { Text("−") }
                             TextButton(
-                                onClick = { changePanSensitivity.value(-10) },
-                                enabled = settings.panSensitivity > 10,
+                                onClick = { updateSettings(settings.copy(gyroQuietThreshold = settings.gyroQuietThreshold + 1)) },
+                                enabled = settings.gyroQuietThreshold < 100,
                                 colors = paddingButtonColors
-                            ) { Text("CSo−") }
-                            Text("sensibilidade pan : ${settings.panSensitivity} dp", color = Color.White)
+                            ) { Text("+") }
+                            Text("limite quieto : ${settings.gyroQuietThreshold / 100f} rad/s", color = Color.White)
+                        }
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            TextButton(
+                                onClick = { updateSettings(settings.copy(gyroQuietTimeMs = settings.gyroQuietTimeMs - 500)) },
+                                enabled = settings.gyroQuietTimeMs > 500,
+                                colors = paddingButtonColors
+                            ) { Text("−") }
+
+                            TextButton(
+                                onClick = { updateSettings(settings.copy(gyroQuietTimeMs = settings.gyroQuietTimeMs + 500)) },
+                                enabled = settings.gyroQuietTimeMs <= Int.MAX_VALUE - 500,
+                                colors = paddingButtonColors
+                            ) { Text("+") }
+                            Text("tempo quieto : ${settings.gyroQuietTimeMs} ms", color = Color.White)
                         }
                     }
                 }

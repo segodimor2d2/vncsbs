@@ -20,6 +20,11 @@ import kotlin.math.abs
 internal fun GyroscopePanEffect(
     enabled: Boolean,
     sensitivity: Int,
+    quietThreshold: Float,
+    quietTimeMs: Int,
+    autoCenterEnabled: Boolean,
+    onCenter: () -> Unit,
+    onQuietTime: (Int) -> Unit,
     onPan: (Int, Int) -> Unit,
     onStop: () -> Unit
 ): Boolean {
@@ -30,10 +35,15 @@ internal fun GyroscopePanEffect(
     }
     val sensor = remember(manager) { manager?.getDefaultSensor(Sensor.TYPE_GYROSCOPE) }
     val currentSensitivity = rememberUpdatedState(sensitivity)
+    val currentThreshold = rememberUpdatedState(quietThreshold)
+    val currentQuietTime = rememberUpdatedState(quietTimeMs)
+    val currentCenter = rememberUpdatedState(onCenter)
+    val currentQuietCallback = rememberUpdatedState(onQuietTime)
     val currentPan = rememberUpdatedState(onPan)
     val currentStop = rememberUpdatedState(onStop)
 
-    DisposableEffect(activity, manager, sensor, enabled) {
+    DisposableEffect(activity, manager, sensor, enabled, autoCenterEnabled) {
+        val quietTimer = GyroQuietTimer()
         var timestamp = 0L
         var remainderX = 0f
         var remainderY = 0f
@@ -43,7 +53,20 @@ internal fun GyroscopePanEffect(
             override fun onSensorChanged(event: SensorEvent) {
                 val previous = timestamp
                 timestamp = event.timestamp
-                if (previous == 0L) return
+                if (previous == 0L || event.timestamp - previous > 100_000_000L) {
+                    quietTimer.reset()
+                    remainderX = 0f
+                    remainderY = 0f
+                }
+                val threshold = currentThreshold.value
+                val speed = kotlin.math.sqrt(event.values.take(3).sumOf { (it * it).toDouble() }).toFloat()
+                if (autoCenterEnabled && quietTimer.update(event.timestamp, speed, threshold, currentQuietTime.value)) {
+                    remainderX = 0f
+                    remainderY = 0f
+                    currentCenter.value()
+                }
+                currentQuietCallback.value(quietTimer.elapsedMs)
+                if (speed <= threshold || previous == 0L) return
                 val dt = (event.timestamp - previous) * 1e-9f
                 if (dt <= 0f || dt > 0.1f) return
                 val x = event.values[0]
@@ -58,8 +81,8 @@ internal fun GyroscopePanEffect(
                 }
                 // One sensitivity step per five degrees; ignore small sensor noise.
                 val gain = currentSensitivity.value / (Math.PI.toFloat() / 36f)
-                if (abs(screenY) > 0.02f) remainderX += screenY * dt * gain
-                if (abs(screenX) > 0.02f) remainderY += screenX * dt * gain
+                if (abs(screenY) > threshold) remainderX += screenY * dt * gain
+                if (abs(screenX) > threshold) remainderY += screenX * dt * gain
                 val dx = remainderX.toInt()
                 val dy = remainderY.toInt()
                 remainderX -= dx
@@ -70,6 +93,8 @@ internal fun GyroscopePanEffect(
         fun stop() {
             manager?.unregisterListener(listener)
             timestamp = 0L
+            quietTimer.reset()
+            currentQuietCallback.value(0)
             remainderX = 0f
             remainderY = 0f
             currentStop.value()

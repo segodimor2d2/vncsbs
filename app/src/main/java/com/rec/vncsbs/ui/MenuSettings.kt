@@ -12,7 +12,10 @@ data class MenuSettings(
     val panX: Int = 0,
     val panY: Int = 0,
     val panSensitivity: Int = 10,
-    val gyroPanEnabled: Boolean = false
+    val gyroPanEnabled: Boolean = false,
+    val gyroQuietThreshold: Int = 2,
+    val gyroQuietTimeMs: Int = 500,
+    val gyroAutoCenterEnabled: Boolean = false
 )
 
 class MenuSettingsStore(context: Context) {
@@ -38,7 +41,10 @@ class MenuSettingsStore(context: Context) {
             preferences.getInt("pan_x", initial.panX),
             preferences.getInt("pan_y", initial.panY),
             preferences.getInt("pan_sensitivity", initial.panSensitivity).coerceAtLeast(10),
-            preferences.getBoolean("gyro_pan_enabled", initial.gyroPanEnabled)
+            preferences.getBoolean("gyro_pan_enabled", initial.gyroPanEnabled),
+            preferences.getInt("gyro_quiet_threshold", initial.gyroQuietThreshold).coerceIn(1, 100),
+            preferences.getInt("gyro_quiet_time_ms", initial.gyroQuietTimeMs).coerceAtLeast(500),
+            preferences.getBoolean("gyro_auto_center_enabled", initial.gyroAutoCenterEnabled)
         )
     }
 
@@ -53,6 +59,9 @@ class MenuSettingsStore(context: Context) {
             .putInt("pan_y", settings.panY)
             .putInt("pan_sensitivity", settings.panSensitivity)
             .putBoolean("gyro_pan_enabled", settings.gyroPanEnabled)
+            .putInt("gyro_quiet_threshold", settings.gyroQuietThreshold)
+            .putInt("gyro_quiet_time_ms", settings.gyroQuietTimeMs)
+            .putBoolean("gyro_auto_center_enabled", settings.gyroAutoCenterEnabled)
             .apply()
     }
 }

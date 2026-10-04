@@ -2626,6 +2626,7 @@ $$$$
 e app/src/main/res/values/menu_defaults.xml
 e app/src/main/java/com/rec/vncsbs/ui/VncScreen.kt
 e app/src/main/java/com/rec/vncsbs/ui/GyroscopePan.kt
+e app/src/main/java/com/rec/vncsbs/ui/MenuSettings.kt
 
 
 ./gradlew installDebug && adb shell am start -n com.rec.vncsbs/.MainActivity && adb logcat -c && adb logcat -v threadtime | grep -E "VncClient"
@@ -2668,6 +2669,12 @@ quero que ctrl+shift+p ative/desative o gyroPanEnabled
 
 me ajuda a criar um controle on/off que me permita ativar e desativar o pan sendo controlado pelo giroscopo
 
+quero criar um contador de tempo que ao ficar quieto no giroscopo ele centraliza o pan,
+quero adicionar dois controles:
+- um controle para controlar a sensibilidade para definir quieto que tem aber com o ruido do giroscopo
+- um controle para controlar o tempo que o contador de quieto fica quieto, em milissegundos pudendo aumentar de 500 em 500 milissegundos começando em 500milissegundos
+
+me ajuda a criar um controle on/off que me permita ativar e desativar a funcionalidade de centralizar se estiver parado
 
 feat: pas panSensitivity keyboard y/o
 ---
