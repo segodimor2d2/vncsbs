@@ -3,10 +3,12 @@ package com.rec.vncsbs.vnc
 
 import com.rec.vncsbs.ui.RemoteFrame
 import java.net.Socket
+import java.net.InetSocketAddress
 import javax.crypto.Cipher
 import javax.crypto.spec.SecretKeySpec
 
 class VncClient(
+    private val onConnectionChanged: (Boolean) -> Unit = {},
     private val onFrame: (RemoteFrame) -> Unit
 ) {
 
@@ -21,12 +23,10 @@ class VncClient(
             try {
                 println("VncClient: conectando $host:$port")
 
-                val newSocket = Socket(
-                    host,
-                    port
-                )
-
+                val newSocket = Socket()
                 socket = newSocket
+                newSocket.connect(InetSocketAddress(host, port), 10_000)
+                newSocket.soTimeout = 10_000
 
                 println("VncClient: TCP conectado")
 
@@ -362,6 +362,9 @@ class VncClient(
                     "VncClient: SetEncodings enviado = RAW"
                 )
 
+                newSocket.soTimeout = 0
+                onConnectionChanged(true)
+
                 val framebufferPixels =
                     ByteArray(framebufferWidth * framebufferHeight * 4)
 
@@ -596,8 +599,13 @@ class VncClient(
                     "VncClient: erro = ${e.message}"
                 )
 
-                socket?.close()
+            } finally {
+                try {
+                    socket?.close()
+                } catch (_: Exception) {
+                }
                 socket = null
+                onConnectionChanged(false)
             }
         }.start()
     }

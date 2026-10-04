@@ -8,10 +8,12 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 data class VncUiState(
     val connected: Boolean = false,
+    val connecting: Boolean = false,
     val frame: RemoteFrame = RemoteFrame()
 )
 
@@ -20,7 +22,17 @@ class VncViewModel : ViewModel() {
     private val frameChannel =
         Channel<RemoteFrame>(Channel.CONFLATED)
 
-    private val vncClient = VncClient { frame ->
+    private val _uiState = MutableStateFlow(
+        VncUiState(
+            frame = createTestFrame()
+        )
+    )
+
+    private val vncClient = VncClient(
+        onConnectionChanged = { connected ->
+            _uiState.update { it.copy(connected = connected, connecting = false) }
+        }
+    ) { frame ->
 
         println(
             "VncViewModel: RECEBEU FRAME " +
@@ -31,12 +43,6 @@ class VncViewModel : ViewModel() {
         frameChannel.trySend(frame)
     }
 
-    private val _uiState = MutableStateFlow(
-        VncUiState(
-            frame = createTestFrame()
-        )
-    )
-
     val uiState: StateFlow<VncUiState> =
         _uiState.asStateFlow()
 
@@ -45,9 +51,7 @@ class VncViewModel : ViewModel() {
 
             for (frame in frameChannel) {
 
-                _uiState.value = _uiState.value.copy(
-                    frame = frame
-                )
+                _uiState.update { it.copy(frame = frame) }
 
                 println(
                     "VncViewModel: STATE ATUALIZADO"
@@ -57,6 +61,8 @@ class VncViewModel : ViewModel() {
     }
 
     fun testVncConnection() {
+        if (_uiState.value.connecting || _uiState.value.connected) return
+        _uiState.update { it.copy(connecting = true) }
         vncClient.connect(
             host = "192.168.31.127",
             port = 5900,
@@ -68,6 +74,8 @@ class VncViewModel : ViewModel() {
         host: String,
         port: Int
     ) {
+        if (_uiState.value.connecting || _uiState.value.connected) return
+        _uiState.update { it.copy(connecting = true) }
         vncClient.connect(
             host = host,
             port = port,

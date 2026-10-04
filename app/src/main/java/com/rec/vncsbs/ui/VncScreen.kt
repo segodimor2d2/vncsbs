@@ -400,13 +400,29 @@ fun VncScreen(
             TextButton(
 
                 onClick = { viewModel.testVncConnection() },
+                enabled = !uiState.connecting && !uiState.connected,
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .safeDrawingPadding()
                     .padding(8.dp)
-                    .background(Color.Black.copy(alpha = 0.5f))
+                    .background(
+                        when {
+                            uiState.connecting -> Color(0xFFB86E00)
+                            uiState.connected -> Color(0xFF2E7D32)
+                            else -> Color.Black.copy(alpha = 0.5f)
+                        }
+                    )
 
-            ) { Text("VNC CONNECT", color = Color.White) }
+            ) {
+                Text(
+                    when {
+                        uiState.connecting -> "CONECTANDO…"
+                        uiState.connected -> "VNC CONECTADO"
+                        else -> "VNC CONNECT"
+                    },
+                    color = Color.White
+                )
+            }
         }
     }
 }
