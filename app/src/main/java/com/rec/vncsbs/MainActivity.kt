@@ -12,6 +12,7 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var vncViewModel: VncViewModel
     var onToggleMenu: (() -> Unit)? = null
+    var onCenterPan: (() -> Unit)? = null
     var onToggleGyroPan: (() -> Unit)? = null
     var onToggleGyroAutoCenter: (() -> Unit)? = null
     var onZoomChange: ((Int) -> Unit)? = null
@@ -22,11 +23,12 @@ class MainActivity : ComponentActivity() {
         if (event.isCtrlPressed && event.isShiftPressed && event.keyCode in setOf(
                 KeyEvent.KEYCODE_W, KeyEvent.KEYCODE_U, KeyEvent.KEYCODE_I,
                 KeyEvent.KEYCODE_J, KeyEvent.KEYCODE_K, KeyEvent.KEYCODE_H, KeyEvent.KEYCODE_L,
-                KeyEvent.KEYCODE_Y, KeyEvent.KEYCODE_O, KeyEvent.KEYCODE_P, KeyEvent.KEYCODE_N
+                KeyEvent.KEYCODE_Y, KeyEvent.KEYCODE_O, KeyEvent.KEYCODE_P, KeyEvent.KEYCODE_N, KeyEvent.KEYCODE_M
             )) {
             if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
                 when (event.keyCode) {
                     KeyEvent.KEYCODE_W -> onToggleMenu?.invoke()
+                    KeyEvent.KEYCODE_M -> onCenterPan?.invoke()
                     KeyEvent.KEYCODE_P -> onToggleGyroPan?.invoke()
                     KeyEvent.KEYCODE_N -> onToggleGyroAutoCenter?.invoke()
                     KeyEvent.KEYCODE_Y -> onPanSensitivityChange?.invoke(10)

@@ -69,6 +69,10 @@ fun VncScreen(
         )
         settingsStore.save(settings)
     }
+    val centerPan = rememberUpdatedState {
+        settings = settings.copy(panX = 0, panY = 0)
+        settingsStore.save(settings)
+    }
     var gyroQuietElapsedMs by remember { mutableStateOf(0) }
     val latestSettings = rememberUpdatedState(settings)
     val gyroAvailable = GyroscopePanEffect(
@@ -77,10 +81,7 @@ fun VncScreen(
         quietThreshold = settings.gyroQuietThreshold / 100f,
         quietTimeMs = settings.gyroQuietTimeMs,
         autoCenterEnabled = settings.gyroAutoCenterEnabled,
-        onCenter = {
-            settings = settings.copy(panX = 0, panY = 0)
-            settingsStore.save(settings)
-        },
+        onCenter = { centerPan.value() },
         onQuietTime = { gyroQuietElapsedMs = it },
         onPan = { dx, dy ->
             settings = settings.copy(panX = settings.panX + dx, panY = settings.panY + dy)
@@ -101,6 +102,7 @@ fun VncScreen(
     DisposableEffect(context) {
         val activity = context as? MainActivity
         activity?.onToggleMenu = { toggleMenu.value() }
+        activity?.onCenterPan = { centerPan.value() }
         activity?.onToggleGyroPan = { toggleGyroPan.value() }
         activity?.onToggleGyroAutoCenter = { toggleGyroAutoCenter.value() }
         activity?.onZoomChange = { changeZoom.value(it) }
@@ -108,6 +110,7 @@ fun VncScreen(
         activity?.onPanSensitivityChange = { changePanSensitivity.value(it) }
         onDispose {
             activity?.onToggleMenu = null
+            activity?.onCenterPan = null
             activity?.onToggleGyroPan = null
             activity?.onToggleGyroAutoCenter = null
             activity?.onZoomChange = null
