@@ -93,17 +93,23 @@ fun VncScreen(
             settingsStore.save(settings)
         }
     }
+    val toggleGyroAutoCenter = rememberUpdatedState {
+        settings = settings.copy(gyroAutoCenterEnabled = !settings.gyroAutoCenterEnabled)
+        settingsStore.save(settings)
+    }
     BackHandler(enabled = menuExpanded) { menuExpanded = false }
     DisposableEffect(context) {
         val activity = context as? MainActivity
         activity?.onToggleMenu = { toggleMenu.value() }
         activity?.onToggleGyroPan = { toggleGyroPan.value() }
+        activity?.onToggleGyroAutoCenter = { toggleGyroAutoCenter.value() }
         activity?.onZoomChange = { changeZoom.value(it) }
         activity?.onPanChange = { dx, dy -> changePan.value(dx, dy) }
         activity?.onPanSensitivityChange = { changePanSensitivity.value(it) }
         onDispose {
             activity?.onToggleMenu = null
             activity?.onToggleGyroPan = null
+            activity?.onToggleGyroAutoCenter = null
             activity?.onZoomChange = null
             activity?.onPanChange = null
             activity?.onPanSensitivityChange = null
@@ -287,6 +293,9 @@ fun VncScreen(
 
 
                         Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("zoom : ${settings.zoomPercent}%", color = Color.White)
+                        }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
 
                             TextButton(
                                 onClick = { changeZoom.value(10) },
@@ -298,7 +307,6 @@ fun VncScreen(
                                 enabled = settings.zoomPercent > 25
                             ) { Text("CSi-", color = Color.White) }
 
-                            Text("zoom : ${settings.zoomPercent}%", color = Color.White)
                         }
 
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -309,12 +317,6 @@ fun VncScreen(
                         }
 
                         Row(verticalAlignment = Alignment.CenterVertically) {
-
-
-                            TextButton(onClick = { changePan.value(-1, 0) }) {
-                                Text("CSh →", color = Color.White)
-                            }
-
                             TextButton(onClick = { changePan.value(0, 1) }) {
                                 Text("CSj ↑", color = Color.White)
                             }
@@ -322,13 +324,20 @@ fun VncScreen(
                             TextButton(onClick = { changePan.value(0, -1) }) {
                                 Text("CSk ↓", color = Color.White)
                             }
+                        }
 
+                        Row(verticalAlignment = Alignment.CenterVertically) {
                             TextButton(onClick = { changePan.value(1, 0) }) {
                                 Text("CSl ←", color = Color.White)
+                            }
+
+                            TextButton(onClick = { changePan.value(-1, 0) }) {
+                                Text("CSh →", color = Color.White)
                             }
                         }
 
                     }
+
                     Column(
                         modifier = Modifier
                             .widthIn(max = 440.dp)
@@ -340,15 +349,17 @@ fun VncScreen(
                                 onCheckedChange = { updateSettings(settings.copy(gyroPanEnabled = it)) },
                                 enabled = gyroAvailable
                             )
-                            Text(" giro (CSp)", color = Color.White)
+                            Text(" giro (CSp) ", color = Color.White)
+                        }
 
+                        Row(verticalAlignment = Alignment.CenterVertically) {
                             Switch(
                                 checked = settings.gyroAutoCenterEnabled,
                                 onCheckedChange = {
                                     updateSettings(settings.copy(gyroAutoCenterEnabled = it))
                                 }
                             )
-                            Text("autoCent : $gyroQuietElapsedMs / ${settings.gyroQuietTimeMs} ms", color = Color.White)
+                            Text(" auto (CSn) : $gyroQuietElapsedMs / ${settings.gyroQuietTimeMs} ms", color = Color.White)
                         }
 
                         Row(verticalAlignment = Alignment.CenterVertically) {
