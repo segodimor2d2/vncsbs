@@ -25,10 +25,10 @@ class MainActivity : ComponentActivity() {
                     KeyEvent.KEYCODE_W -> onToggleMenu?.invoke()
                     KeyEvent.KEYCODE_U -> onZoomChange?.invoke(10)
                     KeyEvent.KEYCODE_I -> onZoomChange?.invoke(-10)
-                    KeyEvent.KEYCODE_J -> onPanChange?.invoke(0, 10)
-                    KeyEvent.KEYCODE_K -> onPanChange?.invoke(0, -10)
-                    KeyEvent.KEYCODE_H -> onPanChange?.invoke(-10, 0)
-                    KeyEvent.KEYCODE_L -> onPanChange?.invoke(10, 0)
+                    KeyEvent.KEYCODE_J -> onPanChange?.invoke(0, 1)
+                    KeyEvent.KEYCODE_K -> onPanChange?.invoke(0, -1)
+                    KeyEvent.KEYCODE_H -> onPanChange?.invoke(-1, 0)
+                    KeyEvent.KEYCODE_L -> onPanChange?.invoke(1, 0)
                 }
             }
             return true

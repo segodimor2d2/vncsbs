@@ -55,7 +55,10 @@ fun VncScreen(
         settingsStore.save(settings)
     }
     val changePan = rememberUpdatedState { dx: Int, dy: Int ->
-        settings = settings.copy(panX = settings.panX + dx, panY = settings.panY + dy)
+        settings = settings.copy(
+            panX = settings.panX - dx * settings.panSensitivity,
+            panY = settings.panY - dy * settings.panSensitivity
+        )
         settingsStore.save(settings)
     }
     BackHandler(enabled = menuExpanded) { menuExpanded = false }
@@ -122,15 +125,14 @@ fun VncScreen(
                             .verticalScroll(rememberScrollState())
                     ) {
 
-                        TextButton(
-                            onClick = { updateSettings(settingsStore.defaults()) },
-                            modifier = Modifier.padding(horizontal = 0.dp)
-                        ) { Text("reset ", color = Color.White) }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            TextButton(
+                                onClick = { updateSettings(settingsStore.defaults()) },
+                                modifier = Modifier.padding(horizontal = 0.dp)
+                            ) { Text("reset ", color = Color.White) }
+                        }
 
-                        Row(
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
 
                             TextButton(
                                 onClick = {
@@ -154,10 +156,7 @@ fun VncScreen(
                             Text("${settings.generalPadding} dp", color = Color.White)
                         }
 
-                        Row(
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
                             TextButton(
                                 onClick = {
                                     updateSettings(settings.copy(
@@ -180,10 +179,7 @@ fun VncScreen(
                             Text("${settings.outerSidePadding} dp", color = Color.White)
                         }
 
-                        Row(
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
                             TextButton(
                                 onClick = {
                                     updateSettings(settings.copy(
@@ -206,10 +202,7 @@ fun VncScreen(
                             Text("${settings.leftViewRightPadding} dp", color = Color.White)
                         }
 
-                        Row(
-                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
                             TextButton(
                                 onClick = {
                                     updateSettings(settings.copy(
@@ -231,6 +224,23 @@ fun VncScreen(
                             Text("R-padL ", color = Color.White)
                             Text("${settings.rightViewLeftPadding} dp", color = Color.White)
                         }
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            TextButton(
+                                onClick = {
+                                    updateSettings(settings.copy(panSensitivity = settings.panSensitivity - 10))
+                                },
+                                enabled = settings.panSensitivity > 10,
+                                colors = paddingButtonColors
+                            ) { Text("−") }
+                            TextButton(
+                                onClick = {
+                                    updateSettings(settings.copy(panSensitivity = settings.panSensitivity + 10))
+                                },
+                                enabled = settings.panSensitivity <= Int.MAX_VALUE - 10,
+                                colors = paddingButtonColors
+                            ) { Text("+") }
+                            Text("sensPan : ${settings.panSensitivity} dp", color = Color.White)
+                        }
 
                     }
                     Column(
@@ -239,8 +249,6 @@ fun VncScreen(
                             .verticalScroll(rememberScrollState())
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
-
-                            Text("zoom : ${settings.zoomPercent}%", color = Color.White)
 
                             TextButton(
                                 onClick = { changeZoom.value(10) },
@@ -251,30 +259,32 @@ fun VncScreen(
                                 onClick = { changeZoom.value(-10) },
                                 enabled = settings.zoomPercent > 25
                             ) { Text("CSi-", color = Color.White) }
+
+                            Text("zoom : ${settings.zoomPercent}%", color = Color.White)
                         }
 
                         Row(verticalAlignment = Alignment.CenterVertically) {
 
+
+                            TextButton(onClick = { changePan.value(-1, 0) }) {
+                                Text("CSh →", color = Color.White)
+                            }
+
+                            TextButton(onClick = { changePan.value(0, 1) }) {
+                                Text("CSj ↑", color = Color.White)
+                            }
+
+                            TextButton(onClick = { changePan.value(0, -1) }) {
+                                Text("CSk ↓", color = Color.White)
+                            }
+
+                            TextButton(onClick = { changePan.value(1, 0) }) {
+                                Text("CSl ←", color = Color.White)
+                            }
                             Text(
-                                "pan : ${settings.panX}, ${settings.panY} dp",
+                                "panX : ${settings.panX}, panY : ${settings.panY}",
                                 color = Color.White
                             )
-
-                            TextButton(onClick = { changePan.value(20, 0) }) {
-                                Text("CSh ←", color = Color.White)
-                            }
-
-                            TextButton(onClick = { changePan.value(0, -20) }) {
-                                Text("CSj ↓", color = Color.White)
-                            }
-
-                            TextButton(onClick = { changePan.value(0, 20) }) {
-                                Text("CSk ↑", color = Color.White)
-                            }
-
-                            TextButton(onClick = { changePan.value(-20, 0) }) {
-                                Text("CSl →", color = Color.White)
-                            }
                         }
                     }
                 }
