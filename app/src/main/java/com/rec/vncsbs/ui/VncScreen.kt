@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.ButtonDefaults
@@ -68,15 +69,32 @@ fun VncScreen(
         )
         settingsStore.save(settings)
     }
+    val latestSettings = rememberUpdatedState(settings)
+    val gyroAvailable = GyroscopePanEffect(
+        enabled = settings.gyroPanEnabled,
+        sensitivity = settings.panSensitivity,
+        onPan = { dx, dy ->
+            settings = settings.copy(panX = settings.panX + dx, panY = settings.panY + dy)
+        },
+        onStop = { settingsStore.save(latestSettings.value) }
+    )
+    val toggleGyroPan = rememberUpdatedState {
+        if (gyroAvailable) {
+            settings = settings.copy(gyroPanEnabled = !settings.gyroPanEnabled)
+            settingsStore.save(settings)
+        }
+    }
     BackHandler(enabled = menuExpanded) { menuExpanded = false }
     DisposableEffect(context) {
         val activity = context as? MainActivity
         activity?.onToggleMenu = { toggleMenu.value() }
+        activity?.onToggleGyroPan = { toggleGyroPan.value() }
         activity?.onZoomChange = { changeZoom.value(it) }
         activity?.onPanChange = { dx, dy -> changePan.value(dx, dy) }
         activity?.onPanSensitivityChange = { changePanSensitivity.value(it) }
         onDispose {
             activity?.onToggleMenu = null
+            activity?.onToggleGyroPan = null
             activity?.onZoomChange = null
             activity?.onPanChange = null
             activity?.onPanSensitivityChange = null
@@ -257,6 +275,16 @@ fun VncScreen(
                             .widthIn(max = 440.dp)
                             .verticalScroll(rememberScrollState())
                     ) {
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Switch(
+                                checked = settings.gyroPanEnabled && gyroAvailable,
+                                onCheckedChange = { updateSettings(settings.copy(gyroPanEnabled = it)) },
+                                enabled = gyroAvailable
+                            )
+                            Text(" giro (CSp)", color = Color.White)
+                        }
+
                         Row(verticalAlignment = Alignment.CenterVertically) {
 
                             TextButton(

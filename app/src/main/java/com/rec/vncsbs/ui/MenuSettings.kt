@@ -11,7 +11,8 @@ data class MenuSettings(
     val zoomPercent: Int,
     val panX: Int = 0,
     val panY: Int = 0,
-    val panSensitivity: Int = 10
+    val panSensitivity: Int = 10,
+    val gyroPanEnabled: Boolean = false
 )
 
 class MenuSettingsStore(context: Context) {
@@ -36,7 +37,8 @@ class MenuSettingsStore(context: Context) {
             preferences.getInt("zoom_percent", initial.zoomPercent).coerceIn(25, 400),
             preferences.getInt("pan_x", initial.panX),
             preferences.getInt("pan_y", initial.panY),
-            preferences.getInt("pan_sensitivity", initial.panSensitivity).coerceAtLeast(10)
+            preferences.getInt("pan_sensitivity", initial.panSensitivity).coerceAtLeast(10),
+            preferences.getBoolean("gyro_pan_enabled", initial.gyroPanEnabled)
         )
     }
 
@@ -50,6 +52,7 @@ class MenuSettingsStore(context: Context) {
             .putInt("pan_x", settings.panX)
             .putInt("pan_y", settings.panY)
             .putInt("pan_sensitivity", settings.panSensitivity)
+            .putBoolean("gyro_pan_enabled", settings.gyroPanEnabled)
             .apply()
     }
 }

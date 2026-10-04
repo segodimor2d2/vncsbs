@@ -2625,6 +2625,7 @@ $$$$
 ```bash
 e app/src/main/res/values/menu_defaults.xml
 e app/src/main/java/com/rec/vncsbs/ui/VncScreen.kt
+e app/src/main/java/com/rec/vncsbs/ui/GyroscopePan.kt
 
 
 ./gradlew installDebug && adb shell am start -n com.rec.vncsbs/.MainActivity && adb logcat -c && adb logcat -v threadtime | grep -E "VncClient"
@@ -2635,6 +2636,9 @@ adb shell am start -n com.rec.vncsbs/.MainActivity
 ```
 ---
 $$$$
+
+
+  A mudança está em GyroscopePan.kt, linha 61 (app/src/main/java/com/rec/vncsbs/ui/GyroscopePan.kt:61), trocando -= por += nos dois eixos:
 
 o botão de VNC connect pode ir dentro do menu,
 o menu pode cobrir toda a tela, pode aumentar a transparência
@@ -2654,9 +2658,18 @@ os controles dos lados vao existir embaixo do controle de zoom,
 
 quero ter um controle para aumentar o diminuir a sensibilidade do pan que pode aumentar de 10 em 10
 
-quero que ctrl+shift+o faça panSensitivity de imagem para baixo,
-quero que ctrl+shift+y faça panSensitivity de imagem para cima,
 
+quero que ctrl+shift+y faça panSensitivity de imagem para cima,
+quero que ctrl+shift+o faça panSensitivity de imagem para baixo,
+
+
+quero que ctrl+shift+p ative/desative o gyroPanEnabled
+
+
+me ajuda a criar um controle on/off que me permita ativar e desativar o pan sendo controlado pelo giroscopo
+
+
+feat: pas panSensitivity keyboard y/o
 ---
 $$$$
 @@@@
