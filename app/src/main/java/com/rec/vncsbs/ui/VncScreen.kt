@@ -1,5 +1,11 @@
 package com.rec.vncsbs.ui
 
+import androidx.compose.foundation.focusable
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.window.Popup
+import androidx.compose.ui.window.PopupProperties
 import androidx.compose.foundation.background
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.rememberScrollState
@@ -55,6 +61,9 @@ fun VncScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val context = LocalContext.current
+    val activity = context as? MainActivity
+    val leadKB = activity?.leadKB == true
+    val leaderFocusRequester = remember { FocusRequester() }
     val settingsStore = remember(context) { MenuSettingsStore(context) }
     var settings by remember(settingsStore) { mutableStateOf(settingsStore.load()) }
     var menuExpanded by rememberSaveable { mutableStateOf(false) }
@@ -113,7 +122,7 @@ fun VncScreen(
         settings = settings.copy(gyroAutoCenterEnabled = !settings.gyroAutoCenterEnabled)
         settingsStore.save(settings)
     }
-    BackHandler(enabled = menuExpanded) { menuExpanded = false }
+    BackHandler(enabled = menuExpanded && !leadKB) { menuExpanded = false }
     DisposableEffect(context) {
         val activity = context as? MainActivity
         activity?.onToggleMenu = { toggleMenu.value() }
@@ -468,7 +477,9 @@ fun VncScreen(
                 title = { Text("VNC CONNECT") },
                 text = {
                     Column(
-                        modifier = Modifier.verticalScroll(rememberScrollState()),
+                        modifier = Modifier
+                            .onPreviewKeyEvent { activity?.handleLeaderKeyEvent(it.nativeKeyEvent) == true }
+                            .verticalScroll(rememberScrollState()),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         OutlinedTextField(
@@ -515,6 +526,32 @@ fun VncScreen(
                         onClick = { showConnectionDialog = false }
                     ) { Text("Cancelar") }
                 }
+            )
+        }
+    }
+    if (leadKB) {
+        Popup(
+            alignment = Alignment.BottomStart,
+            onDismissRequest = {},
+            properties = PopupProperties(
+                focusable = true,
+                dismissOnBackPress = false,
+                dismissOnClickOutside = false
+            )
+        ) {
+            LaunchedEffect(Unit) {
+                leaderFocusRequester.requestFocus()
+            }
+            Text(
+                text = "@",
+                color = Color.White,
+                modifier = Modifier
+                    .safeDrawingPadding()
+                    .background(Color.Black)
+                    .padding(12.dp)
+                    .onPreviewKeyEvent { activity?.handleLeaderKeyEvent(it.nativeKeyEvent) == true }
+                    .focusRequester(leaderFocusRequester)
+                    .focusable()
             )
         }
     }
