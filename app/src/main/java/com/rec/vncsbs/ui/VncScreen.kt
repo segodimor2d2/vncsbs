@@ -13,6 +13,14 @@ import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -50,6 +58,13 @@ fun VncScreen(
     val settingsStore = remember(context) { MenuSettingsStore(context) }
     var settings by remember(settingsStore) { mutableStateOf(settingsStore.load()) }
     var menuExpanded by rememberSaveable { mutableStateOf(false) }
+    var showConnectionDialog by rememberSaveable { mutableStateOf(false) }
+    var server by rememberSaveable { mutableStateOf("") }
+    var port by rememberSaveable { mutableStateOf("") }
+    var password by rememberSaveable { mutableStateOf("") }
+    LaunchedEffect(uiState.connected) {
+        if (uiState.connected) showConnectionDialog = false
+    }
     val toggleMenu = rememberUpdatedState { menuExpanded = !menuExpanded }
     val changeZoom = rememberUpdatedState { delta: Int ->
         settings = settings.copy(zoomPercent = (settings.zoomPercent + delta).coerceIn(25, 400))
@@ -393,7 +408,13 @@ fun VncScreen(
 
             TextButton(
 
-                onClick = { viewModel.testVncConnection() },
+                onClick = {
+                    val connection = viewModel.lastConnection()
+                    server = connection.host
+                    port = connection.port.toString()
+                    password = connection.password
+                    showConnectionDialog = true
+                },
                 enabled = !uiState.connecting && !uiState.connected,
                 modifier = Modifier
                     .align(Alignment.TopEnd)
@@ -417,6 +438,83 @@ fun VncScreen(
                     color = Color.White
                 )
             }
+        }
+    }
+
+    if (showConnectionDialog) {
+        val validPort = port.toIntOrNull()?.takeIf { it in 1..65535 }
+        MaterialTheme(
+            colorScheme = darkColorScheme(
+                primary = Color.White,
+                onPrimary = Color.Black,
+                secondary = Color.White,
+                background = Color.Black,
+                onBackground = Color.White,
+                surface = Color.Black,
+                onSurface = Color.White,
+                surfaceVariant = Color.Black,
+                onSurfaceVariant = Color.White,
+                outline = Color.White,
+                error = Color.White,
+                onError = Color.Black
+            )
+        ) {
+            AlertDialog(
+                containerColor = Color.Black,
+                titleContentColor = Color.White,
+                textContentColor = Color.White,
+                onDismissRequest = { if (!uiState.connecting) showConnectionDialog = false },
+                title = { Text("VNC CONNECT") },
+                text = {
+                    Column(
+                        modifier = Modifier.verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedTextField(
+                            value = server,
+                            onValueChange = { server = it },
+                            label = { Text("Server") },
+                            singleLine = true,
+                            enabled = !uiState.connecting,
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri)
+                        )
+                        OutlinedTextField(
+                            value = port,
+                            onValueChange = { port = it },
+                            label = { Text("Port") },
+                            singleLine = true,
+                            enabled = !uiState.connecting,
+                            isError = validPort == null,
+                            supportingText = { if (validPort == null) Text("Informe uma porta de 1 a 65535") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                        )
+                        OutlinedTextField(
+                            value = password,
+                            onValueChange = { password = it },
+                            label = { Text("Pass") },
+                            singleLine = true,
+                            enabled = !uiState.connecting,
+                            visualTransformation = PasswordVisualTransformation(),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
+                        )
+                        uiState.connectionError?.let { Text(it, color = Color.White) }
+                    }
+                },
+                confirmButton = {
+                    TextButton(
+                        enabled = !uiState.connecting && server.isNotBlank() && validPort != null,
+                        onClick = { validPort?.let { viewModel.connect(server, it, password) } }
+                    ) {
+                        Text(if (uiState.connecting) "Conectando…" else "Conectar")
+                    }
+                },
+                dismissButton = {
+                    TextButton(
+                        enabled = !uiState.connecting,
+                        onClick = { showConnectionDialog = false }
+                    ) { Text("Cancelar") }
+                }
+            )
         }
     }
 }

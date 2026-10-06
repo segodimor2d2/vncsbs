@@ -1,6 +1,7 @@
 package com.rec.vncsbs.viewmodel
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.rec.vncsbs.ui.RemoteFrame
 import com.rec.vncsbs.vnc.VncClient
@@ -14,10 +15,25 @@ import kotlinx.coroutines.launch
 data class VncUiState(
     val connected: Boolean = false,
     val connecting: Boolean = false,
+    val connectionError: String? = null,
     val frame: RemoteFrame = RemoteFrame()
 )
 
-class VncViewModel : ViewModel() {
+data class VncConnection(
+    val host: String = "192.168.1.100",
+    val port: Int = 5900,
+    val password: String = ""
+)
+
+class VncViewModel(application: Application) : AndroidViewModel(application) {
+    private val connectionPreferences = application.getSharedPreferences("vnc_connection", 0)
+    private var pendingConnection: VncConnection? = null
+
+    fun lastConnection() = VncConnection(
+        host = connectionPreferences.getString("host", "192.168.1.100") ?: "192.168.1.100",
+        port = connectionPreferences.getInt("port", 5900),
+        password = connectionPreferences.getString("password", "") ?: ""
+    )
 
     private val frameChannel =
         Channel<RemoteFrame>(Channel.CONFLATED)
@@ -30,7 +46,27 @@ class VncViewModel : ViewModel() {
 
     private val vncClient = VncClient(
         onConnectionChanged = { connected ->
-            _uiState.update { it.copy(connected = connected, connecting = false) }
+            viewModelScope.launch {
+                if (connected) {
+                    pendingConnection?.let { connection ->
+                        connectionPreferences.edit()
+                            .putString("host", connection.host)
+                            .putInt("port", connection.port)
+                            .putString("password", connection.password)
+                            .apply()
+                    }
+                }
+                pendingConnection = null
+                _uiState.update {
+                    it.copy(
+                        connected = connected,
+                        connecting = false,
+                        connectionError = if (!connected && it.connecting)
+                            "Não foi possível conectar. Confira o servidor, a porta e a senha."
+                        else null
+                    )
+                }
+            }
         }
     ) { frame ->
 
@@ -60,27 +96,12 @@ class VncViewModel : ViewModel() {
         }
     }
 
-    fun testVncConnection() {
+    fun connect(host: String, port: Int, password: String = "") {
         if (_uiState.value.connecting || _uiState.value.connected) return
-        _uiState.update { it.copy(connecting = true) }
-        vncClient.connect(
-            host = "192.168.31.127",
-            port = 5900,
-            password = "987654"
-        )
-    }
-
-    fun connect(
-        host: String,
-        port: Int
-    ) {
-        if (_uiState.value.connecting || _uiState.value.connected) return
-        _uiState.update { it.copy(connecting = true) }
-        vncClient.connect(
-            host = host,
-            port = port,
-            password = ""
-        )
+        if (host.isBlank() || port !in 1..65535) return
+        pendingConnection = VncConnection(host.trim(), port, password)
+        _uiState.update { it.copy(connecting = true, connectionError = null) }
+        vncClient.connect(host = host.trim(), port = port, password = password)
     }
 
     fun disconnect() {
