@@ -409,13 +409,14 @@ fun VncScreen(
             TextButton(
 
                 onClick = {
+                    if (uiState.connected) viewModel.disconnect()
                     val connection = viewModel.lastConnection()
                     server = connection.host
                     port = connection.port.toString()
                     password = connection.password
                     showConnectionDialog = true
                 },
-                enabled = !uiState.connecting && !uiState.connected,
+                enabled = !uiState.connecting,
                 modifier = Modifier
                     .align(Alignment.TopEnd)
                     .safeDrawingPadding()
@@ -502,7 +503,7 @@ fun VncScreen(
                 },
                 confirmButton = {
                     TextButton(
-                        enabled = !uiState.connecting && server.isNotBlank() && validPort != null,
+                        enabled = !uiState.connecting && !uiState.connected && server.isNotBlank() && validPort != null,
                         onClick = { validPort?.let { viewModel.connect(server, it, password) } }
                     ) {
                         Text(if (uiState.connecting) "Conectando…" else "Conectar")
