@@ -122,6 +122,27 @@ fun VncScreen(
         settings = settings.copy(gyroAutoCenterEnabled = !settings.gyroAutoCenterEnabled)
         settingsStore.save(settings)
     }
+    fun updateSettings(value: MenuSettings) {
+        settings = value
+        settingsStore.save(value)
+    }
+
+    val adjustDisplay = rememberUpdatedState { key: Char ->
+        val updated = when (key) {
+            'R' -> settingsStore.defaults()
+            'H' -> settings.copy(generalPadding = (settings.generalPadding + 2).coerceAtMost(100))
+            'L' -> settings.copy(generalPadding = (settings.generalPadding - 2).coerceAtLeast(0))
+            'J' -> settings.copy(outerSidePadding = (settings.outerSidePadding + 2).coerceAtMost(100))
+            'K' -> settings.copy(outerSidePadding = (settings.outerSidePadding - 2).coerceAtLeast(0))
+            '0' -> settings.copy(leftViewRightPadding = (settings.leftViewRightPadding + 2).coerceAtMost(100))
+            '*' -> settings.copy(leftViewRightPadding = (settings.leftViewRightPadding - 2).coerceAtLeast(0))
+            '#' -> settings.copy(rightViewLeftPadding = (settings.rightViewLeftPadding + 2).coerceAtMost(100))
+            '$' -> settings.copy(rightViewLeftPadding = (settings.rightViewLeftPadding - 2).coerceAtLeast(0))
+            else -> settings
+        }
+        updateSettings(updated)
+    }
+
     BackHandler(enabled = menuExpanded && !leadKB) { menuExpanded = false }
     DisposableEffect(context) {
         val activity = context as? MainActivity
@@ -132,6 +153,7 @@ fun VncScreen(
         activity?.onZoomChange = { changeZoom.value(it) }
         activity?.onPanChange = { dx, dy -> changePan.value(dx, dy) }
         activity?.onPanSensitivityChange = { changePanSensitivity.value(it) }
+        activity?.onDisplayAdjustment = { adjustDisplay.value(it) }
         onDispose {
             activity?.onToggleMenu = null
             activity?.onCenterPan = null
@@ -140,12 +162,8 @@ fun VncScreen(
             activity?.onZoomChange = null
             activity?.onPanChange = null
             activity?.onPanSensitivityChange = null
+            activity?.onDisplayAdjustment = null
         }
-    }
-
-    fun updateSettings(value: MenuSettings) {
-        settings = value
-        settingsStore.save(value)
     }
 
     val paddingButtonColors = ButtonDefaults.textButtonColors(

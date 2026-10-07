@@ -30,6 +30,9 @@ class MainActivity : ComponentActivity() {
                 }
                 if (!event.isCtrlPressed && !event.isAltPressed && !event.isMetaPressed) {
                     when (event.unicodeChar) {
+                        'R'.code, 'H'.code, 'L'.code, 'J'.code, 'K'.code,
+                        '0'.code, '*'.code, '#'.code, '$'.code ->
+                            onDisplayAdjustment?.invoke(event.unicodeChar.toChar())
                         'u'.code -> onZoomChange?.invoke(10)
                         'i'.code -> onZoomChange?.invoke(-10)
                         'y'.code -> onPanSensitivityChange?.invoke(10)
@@ -59,6 +62,7 @@ class MainActivity : ComponentActivity() {
     var onZoomChange: ((Int) -> Unit)? = null
     var onPanChange: ((Int, Int) -> Unit)? = null
     var onPanSensitivityChange: ((Int) -> Unit)? = null
+    var onDisplayAdjustment: ((Char) -> Unit)? = null
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (handleLeaderKeyEvent(event)) return true
