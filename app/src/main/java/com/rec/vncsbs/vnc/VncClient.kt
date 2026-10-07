@@ -55,7 +55,7 @@ class VncClient(
 
                 println("VncClient: TCP conectado")
 
-                val input = newSocket.getInputStream()
+                val input = java.io.BufferedInputStream(newSocket.getInputStream(), 64 * 1024)
                 val output = newSocket.getOutputStream()
 
                 val versionBytes = ByteArray(12)
@@ -391,14 +391,14 @@ class VncClient(
                 keyboardOutput = output
                 onConnectionChanged(true)
 
-                val framebufferPixels =
-                    ByteArray(framebufferWidth * framebufferHeight * 4)
+                val framebuffer = RemoteFramebuffer(framebufferWidth, framebufferHeight)
 
                 var incremental = false
+                val request = ByteArray(10)
+                val rectangleCountBytes = ByteArray(2)
+                val rectangleHeader = ByteArray(12)
 
                 while (true) {
-
-                    val request = ByteArray(10)
 
                     request[0] = 3
                     request[1] = if (incremental) 1 else 0
@@ -448,8 +448,6 @@ class VncClient(
                     }
 
                     // Número de rectangles
-                    val rectangleCountBytes = ByteArray(2)
-
                     readFully(
                         input,
                         rectangleCountBytes
@@ -462,8 +460,6 @@ class VncClient(
                     if (rectangleCount > 0) {
 
                         for (rectangleIndex in 0 until rectangleCount) {
-
-                            val rectangleHeader = ByteArray(12)
 
                             readFully(
                                 input,
@@ -498,46 +494,18 @@ class VncClient(
                                 )
                             }
 
-                            val pixelBytes =
-                                rectWidth * rectHeight * 4
-
-                            val pixels =
-                                ByteArray(pixelBytes)
-
-                            readFully(
-                                input,
-                                pixels
-                            )
-
-                            for (y in 0 until rectHeight) {
-
-                                val sourceOffset =
-                                    y * rectWidth * 4
-
-                                val destinationOffset =
-                                    ((rectY + y) * framebufferWidth + rectX) * 4
-
-                                System.arraycopy(
-                                    pixels,
-                                    sourceOffset,
-                                    framebufferPixels,
-                                    destinationOffset,
-                                    rectWidth * 4
-                                )
-                            }
-
+                            framebuffer.readRectangle(input, rectX, rectY, rectWidth, rectHeight)
                         }
 
-                        val framePixels = framebufferPixels.copyOf()
-
+                        val revision = framebuffer.commit()
                         onFrame(
                             RemoteFrame(
                                 width = framebufferWidth,
                                 height = framebufferHeight,
-                                pixels = framePixels
+                                framebuffer = framebuffer,
+                                revision = revision
                             )
                         )
-
                     }
 
                     incremental = true

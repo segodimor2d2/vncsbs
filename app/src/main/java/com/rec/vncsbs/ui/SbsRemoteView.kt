@@ -1,11 +1,8 @@
 package com.rec.vncsbs.ui
 
-import android.graphics.Bitmap
 import android.content.res.Configuration
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.offset
 import androidx.compose.material3.Text
@@ -13,28 +10,24 @@ import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.Dp
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.channels.Channel
-import kotlinx.coroutines.withContext
+import androidx.compose.ui.viewinterop.AndroidView
+import com.rec.vncsbs.vnc.RemoteFramebuffer
+import java.io.ByteArrayInputStream
 
 data class RemoteFrame(
     val width: Int = 0,
     val height: Int = 0,
-    val pixels: ByteArray = ByteArray(0)
+    val pixels: ByteArray = ByteArray(0),
+    val framebuffer: RemoteFramebuffer? = null,
+    val revision: Long = 0
 )
 
 @Composable
@@ -54,90 +47,18 @@ fun SbsRemoteView(
         LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
     ) 2 else 1
 
-    val frameChannel = remember {
-        Channel<RemoteFrame>(Channel.CONFLATED)
-    }
-
-    var bitmap by remember {
-        mutableStateOf<Bitmap?>(null)
-    }
-
-    LaunchedEffect(frame) {
-        frameChannel.trySend(frame)
-    }
-
-    LaunchedEffect(Unit) {
-
-        for (currentFrame in frameChannel) {
-
-            if (
-                currentFrame.width <= 0 ||
-                currentFrame.height <= 0 ||
-                currentFrame.pixels.size <
-                    currentFrame.width *
-                    currentFrame.height *
-                    4
-            ) {
-                continue
+    val framebuffer = remember(frame.framebuffer, frame.width, frame.height, if (frame.framebuffer == null) frame.pixels else null) {
+        frame.framebuffer ?: if (frame.width > 0 && frame.height > 0 &&
+            frame.pixels.size.toLong() >= frame.width.toLong() * frame.height * 4) {
+            RemoteFramebuffer(frame.width, frame.height).also {
+                it.readRectangle(ByteArrayInputStream(frame.pixels), 0, 0, frame.width, frame.height)
+                it.commit()
             }
-
-            val newBitmap = withContext(Dispatchers.Default) {
-
-                val colors = IntArray(
-                    currentFrame.width *
-                    currentFrame.height
-                )
-
-                for (y in 0 until currentFrame.height) {
-                    for (x in 0 until currentFrame.width) {
-
-                        val pixelIndex =
-                            (y * currentFrame.width + x) * 4
-
-                        val b =
-                            currentFrame.pixels[pixelIndex]
-                                .toInt() and 0xFF
-
-                        val g =
-                            currentFrame.pixels[pixelIndex + 1]
-                                .toInt() and 0xFF
-
-                        val r =
-                            currentFrame.pixels[pixelIndex + 2]
-                                .toInt() and 0xFF
-
-                        colors[y * currentFrame.width + x] =
-                            (255 shl 24) or
-                            (r shl 16) or
-                            (g shl 8) or
-                            b
-                    }
-                }
-
-                Bitmap.createBitmap(
-                    currentFrame.width,
-                    currentFrame.height,
-                    Bitmap.Config.ARGB_8888
-                ).apply {
-                    setPixels(
-                        colors,
-                        0,
-                        currentFrame.width,
-                        0,
-                        0,
-                        currentFrame.width,
-                        currentFrame.height
-                    )
-                }
-            }
-
-            bitmap = newBitmap
-        }
+        } else null
     }
+    val renderer = remember(framebuffer) { framebuffer?.let { RemoteBitmapRenderer(it) } }
 
-    val currentBitmap = bitmap
-
-    if (currentBitmap != null) {
+    if (renderer != null) {
         Row(
             modifier = modifier
                 .fillMaxSize()
@@ -160,9 +81,9 @@ fun SbsRemoteView(
                         )
                         .clipToBounds()
                 ) {
-                    Image(
-                        bitmap = currentBitmap.asImageBitmap(),
-                        contentDescription = null,
+                    AndroidView(
+                        factory = { RemoteBitmapView(it) },
+                        update = { it.update(renderer, frame.revision) },
                         modifier = Modifier
                             .fillMaxSize()
                             .graphicsLayer {
@@ -170,11 +91,10 @@ fun SbsRemoteView(
                                 scaleY = zoom
                                 translationX = panX.toPx()
                                 translationY = panY.toPx()
-                            },
-                        contentScale = ContentScale.Fit
+                            }
                     )
                     if (leadKB) {
-                        val aspect = currentBitmap.width.toFloat() / currentBitmap.height
+                        val aspect = frame.width.toFloat() / frame.height
                         val fittedWidth = minOf(maxWidth, maxHeight * aspect)
                         val fittedHeight = fittedWidth / aspect
                         val imageLeft = (maxWidth - fittedWidth * zoom) / 2 + panX
