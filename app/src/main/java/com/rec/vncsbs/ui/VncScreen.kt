@@ -390,7 +390,7 @@ fun VncScreen(
                                 },
                                 enabled = uiState.connected && android.os.Build.VERSION.SDK_INT >= 26
                             )
-                            Text(" Capturar mouse (Esc abre menu)", color = Color.White)
+                            Text("mouse", color = Color.White)
                         }
 
                         Row(verticalAlignment = Alignment.CenterVertically) {
