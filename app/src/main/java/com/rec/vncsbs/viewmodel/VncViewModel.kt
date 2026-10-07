@@ -11,11 +11,14 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import org.json.JSONArray
+import org.json.JSONObject
 
 data class VncUiState(
     val connected: Boolean = false,
     val connecting: Boolean = false,
     val connectionError: String? = null,
+    val savedConnections: List<VncConnection> = emptyList(),
     val frame: RemoteFrame = RemoteFrame()
 )
 
@@ -28,6 +31,44 @@ data class VncConnection(
 class VncViewModel(application: Application) : AndroidViewModel(application) {
     private val connectionPreferences = application.getSharedPreferences("vnc_connection", 0)
     private var pendingConnection: VncConnection? = null
+    private var queuedConnection: VncConnection? = null
+
+    private fun loadSavedConnections(): List<VncConnection> {
+        val saved = connectionPreferences.getString("saved_connections", null)
+        if (saved == null) return if (connectionPreferences.contains("host")) listOf(lastConnection()) else emptyList()
+        return runCatching {
+            val entries = JSONArray(saved)
+            List(entries.length()) { index ->
+                val entry = entries.getJSONObject(index)
+                VncConnection(entry.getString("host"), entry.getInt("port"), entry.getString("password"))
+            }
+        }.getOrDefault(emptyList())
+    }
+
+    private fun persistSavedConnections(connections: List<VncConnection>) {
+        val entries = JSONArray()
+        connections.forEach { connection ->
+            entries.put(JSONObject().put("host", connection.host)
+                .put("port", connection.port).put("password", connection.password))
+        }
+        connectionPreferences.edit().putString("saved_connections", entries.toString()).apply()
+        _uiState.update { it.copy(savedConnections = connections) }
+    }
+
+    fun deleteSavedConnection(connection: VncConnection) {
+        persistSavedConnections(_uiState.value.savedConnections.filterNot {
+            it.host == connection.host && it.port == connection.port
+        })
+    }
+
+    fun connectSaved(connection: VncConnection) {
+        if (_uiState.value.connecting) return
+        if (_uiState.value.connected) {
+            queuedConnection = connection
+            _uiState.update { it.copy(connecting = true, connectionError = null) }
+            vncClient.disconnect()
+        } else connect(connection.host, connection.port, connection.password)
+    }
 
     fun lastConnection() = VncConnection(
         host = connectionPreferences.getString("host", "192.168.1.100") ?: "192.168.1.100",
@@ -40,6 +81,7 @@ class VncViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _uiState = MutableStateFlow(
         VncUiState(
+            savedConnections = loadSavedConnections(),
             frame = createTestFrame()
         )
     )
@@ -49,6 +91,9 @@ class VncViewModel(application: Application) : AndroidViewModel(application) {
             viewModelScope.launch {
                 if (connected) {
                     pendingConnection?.let { connection ->
+                        persistSavedConnections(listOf(connection) + _uiState.value.savedConnections.filterNot {
+                            it.host == connection.host && it.port == connection.port
+                        })
                         connectionPreferences.edit()
                             .putString("host", connection.host)
                             .putInt("port", connection.port)
@@ -57,15 +102,18 @@ class VncViewModel(application: Application) : AndroidViewModel(application) {
                     }
                 }
                 pendingConnection = null
+                val nextConnection = if (!connected) queuedConnection else null
+                if (!connected) queuedConnection = null
                 _uiState.update {
                     it.copy(
                         connected = connected,
                         connecting = false,
                         connectionError = if (!connected && it.connecting)
-                            "Não foi possível conectar. Confira o servidor, a porta e a senha."
+                            if (nextConnection == null) "Não foi possível conectar. Confira o servidor, a porta e a senha." else null
                         else null
                     )
                 }
+                nextConnection?.let { connect(it.host, it.port, it.password) }
             }
         }
     ) { frame ->

@@ -69,6 +69,7 @@ fun VncScreen(
     var settings by remember(settingsStore) { mutableStateOf(settingsStore.load()) }
     var menuExpanded by rememberSaveable { mutableStateOf(false) }
     var connectionExpanded by rememberSaveable { mutableStateOf(false) }
+    var savedConnectionsExpanded by rememberSaveable { mutableStateOf(false) }
     var connectionInputFocused by remember { mutableStateOf(false) }
     var keyboardRequested by remember { mutableStateOf(false) }
     val keyboardVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
@@ -281,25 +282,49 @@ fun VncScreen(
                             .verticalScroll(rememberScrollState())
                     ) {
 
-                        TextButton(
-                            onClick = { connectionExpanded = !connectionExpanded },
-                            enabled = !uiState.connecting,
-                            modifier = Modifier.background(
-                                when {
-                                    uiState.connecting -> Color(0xFFB86E00)
-                                    uiState.connected -> Color(0xFF2E7D32)
-                                    else -> Color.Black.copy(alpha = 0.5f)
-                                }
-                            )
-                        ) {
-                            Text(
-                                when {
-                                    uiState.connecting -> "connecting…"
-                                    uiState.connected -> "vnc connected"
-                                    else -> "vnc connect"
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            TextButton(
+                                onClick = { connectionExpanded = !connectionExpanded },
+                                enabled = !uiState.connecting,
+                                modifier = Modifier.background(
+                                    when {
+                                        uiState.connecting -> Color(0xFFB86E00)
+                                        uiState.connected -> Color(0xFF2E7D32)
+                                        else -> Color.Black.copy(alpha = 0.5f)
+                                    }
+                                )
+                            ) {
+                                Text(
+                                    when {
+                                        uiState.connecting -> "connecting…"
+                                        uiState.connected -> "vnc connected"
+                                        else -> "vnc connect"
+                                    },
+                                    color = Color.White
+                                )
+                            }
+                            TextButton(
+                                onClick = { savedConnectionsExpanded = !savedConnectionsExpanded },
+                                modifier = Modifier.testTag("saved-connections-toggle")
+                            ) { Text("+", color = Color.White) }
+                        }
+                        if (savedConnectionsExpanded) {
+                            SavedConnectionsMenu(
+                                connections = uiState.savedConnections,
+                                connecting = uiState.connecting,
+                                onConnect = {
+                                    server = it.host
+                                    port = it.port.toString()
+                                    password = it.password
+                                    viewModel.connectSaved(it)
                                 },
-                                color = Color.White
+                                onDelete = viewModel::deleteSavedConnection
                             )
+                            if (!connectionExpanded) {
+                                uiState.connectionError?.let {
+                                    Text(it, color = Color(0xFFFF8080))
+                                }
+                            }
                         }
                         if (connectionExpanded) {
                             ConnectionMenu(
@@ -393,7 +418,6 @@ fun VncScreen(
                             ) {
                                 Text("teclado", color = Color.White)
                             }
-                            Text(if (keyboardVisible) "ligado" else "desligado", color = Color.White)
                         }
 
 
