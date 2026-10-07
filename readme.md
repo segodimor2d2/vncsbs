@@ -159,10 +159,45 @@ x0vncserver -display :0 -passwordfile /home/segodimo/.vnc/passwd -rfbport 5900 -
 
 ```bash
 
-x0vncserver \
+  x0vncserver \
     -display :0 \
     -passwordfile /home/segodimo/.vnc/passwd \
     -rfbport 5900 \
     -CompareFB 1
+
+```
+
+# VIA LOCAL
+
+```bash
+
+  x0vncserver \
+    -display :0 \
+    -passwordfile /home/segodimo/.vnc/passwd \
+    -rfbport 5900 \
+    -localhost \
+    -CompareFB 1 \
+    -PollingCycle 5 \
+    -MaxProcessorUsage 100 \
+    -FrameRate 60 
+
+```
+# -CompareFB 1 \
+# -PollingCycle 1 \
+# -FrameRate 120
+
+# VIA USB
+
+```bash
+
+  x0vncserver \
+    -display :0 \
+    -passwordfile /home/segodimo/.vnc/passwd \
+    -rfbport 5900 \
+    -localhost \
+    -CompareFB 1 \
+    -PollingCycle 5 \
+    -MaxProcessorUsage 100 \
+    -FrameRate 30 \
 
 ```
