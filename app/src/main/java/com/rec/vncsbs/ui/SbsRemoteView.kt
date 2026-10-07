@@ -6,6 +6,10 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.offset
+import androidx.compose.material3.Text
+import androidx.compose.ui.Alignment
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
@@ -43,7 +47,8 @@ fun SbsRemoteView(
     rightViewLeftPadding: Dp = 0.dp,
     zoom: Float = 1f,
     panX: Dp = 0.dp,
-    panY: Dp = 0.dp
+    panY: Dp = 0.dp,
+    leadKB: Boolean = false
 ) {
     val screenCount = if (
         LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
@@ -141,7 +146,7 @@ fun SbsRemoteView(
                 .padding(horizontal = outerSidePadding)
         ) {
             repeat(screenCount) { index ->
-                Box(
+                BoxWithConstraints(
                     modifier = Modifier
                         .weight(1f)
                         .fillMaxSize()
@@ -168,6 +173,25 @@ fun SbsRemoteView(
                             },
                         contentScale = ContentScale.Fit
                     )
+                    if (leadKB) {
+                        val aspect = currentBitmap.width.toFloat() / currentBitmap.height
+                        val fittedWidth = minOf(maxWidth, maxHeight * aspect)
+                        val fittedHeight = fittedWidth / aspect
+                        val imageLeft = (maxWidth - fittedWidth * zoom) / 2 + panX
+                        val imageBottom = (maxHeight + fittedHeight * zoom) / 2 + panY
+                        Text(
+                            text = "@",
+                            color = Color.White,
+                            modifier = Modifier
+                                .align(Alignment.BottomStart)
+                                .offset(
+                                    x = imageLeft.coerceIn(0.dp, maxWidth),
+                                    y = (imageBottom - maxHeight).coerceIn(-maxHeight, 0.dp)
+                                )
+                                .background(Color.Black.copy(alpha = 0.8f))
+                                .padding(6.dp)
+                        )
+                    }
                 }
             }
         }

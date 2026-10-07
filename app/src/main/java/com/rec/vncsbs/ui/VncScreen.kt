@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.safeDrawingPadding
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.MaterialTheme
@@ -191,7 +192,8 @@ fun VncScreen(
                 rightViewLeftPadding = settings.rightViewLeftPadding.dp,
                 zoom = settings.zoomPercent / 100f,
                 panX = settings.panX.dp,
-                panY = settings.panY.dp
+                panY = settings.panY.dp,
+                leadKB = leadKB
             )
         }
 
@@ -567,13 +569,9 @@ fun VncScreen(
             LaunchedEffect(Unit) {
                 leaderFocusRequester.requestFocus()
             }
-            Text(
-                text = "@",
-                color = Color.White,
+            Box(
                 modifier = Modifier
-                    .safeDrawingPadding()
-                    .background(Color.Black)
-                    .padding(12.dp)
+                    .size(1.dp)
                     .onPreviewKeyEvent { activity?.handleLeaderKeyEvent(it.nativeKeyEvent) == true }
                     .focusRequester(leaderFocusRequester)
                     .focusable()
