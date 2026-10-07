@@ -22,6 +22,7 @@ class MainActivity : ComponentActivity() {
             if (field && !value) releaseRemoteKeys()
             field = value
         }
+    var localKeyboardInputFocused = false
 
     private fun releaseRemoteKeys() {
         remotePressedKeys.values.forEach { vncViewModel.sendKeyEvent(it, false) }
@@ -40,6 +41,7 @@ class MainActivity : ComponentActivity() {
     }
 
     fun handleLeaderKeyEvent(event: KeyEvent): Boolean {
+        if (localKeyboardInputFocused) return false
         if (event.keyCode == KeyEvent.KEYCODE_SHIFT_LEFT || event.keyCode == KeyEvent.KEYCODE_SHIFT_RIGHT) {
             val key = event.deviceId to event.keyCode
             when (event.action) {

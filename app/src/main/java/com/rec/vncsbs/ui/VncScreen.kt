@@ -20,13 +20,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -68,16 +61,19 @@ fun VncScreen(
     val settingsStore = remember(context) { MenuSettingsStore(context) }
     var settings by remember(settingsStore) { mutableStateOf(settingsStore.load()) }
     var menuExpanded by rememberSaveable { mutableStateOf(false) }
-    var showConnectionDialog by rememberSaveable { mutableStateOf(false) }
+    var connectionExpanded by rememberSaveable { mutableStateOf(false) }
+    var connectionInputFocused by remember { mutableStateOf(false) }
     val mouseCaptureView = remember(context) { MouseCaptureView(context) }
     androidx.compose.runtime.SideEffect {
-        activity?.remoteKeyboardEnabled = uiState.connected && !showConnectionDialog
+        activity?.remoteKeyboardEnabled = uiState.connected && !connectionInputFocused
+        activity?.localKeyboardInputFocused = connectionInputFocused
     }
-    var server by rememberSaveable { mutableStateOf("") }
-    var port by rememberSaveable { mutableStateOf("") }
-    var password by rememberSaveable { mutableStateOf("") }
+    val lastConnection = remember(viewModel) { viewModel.lastConnection() }
+    var server by rememberSaveable { mutableStateOf(lastConnection.host) }
+    var port by rememberSaveable { mutableStateOf(lastConnection.port.toString()) }
+    var password by rememberSaveable { mutableStateOf(lastConnection.password) }
     LaunchedEffect(uiState.connected) {
-        if (uiState.connected) showConnectionDialog = false
+        if (uiState.connected) connectionExpanded = false
     }
     val toggleMenu = rememberUpdatedState { menuExpanded = !menuExpanded }
     val changeZoom = rememberUpdatedState { delta: Int ->
@@ -180,6 +176,7 @@ fun VncScreen(
         onDispose {
             mouseCaptureView.stopCapture()
             activity?.remoteKeyboardEnabled = false
+            activity?.localKeyboardInputFocused = false
             activity?.onToggleMenu = null
             activity?.onToggleMouseCapture = null
             activity?.onCenterPan = null
@@ -211,7 +208,7 @@ fun VncScreen(
                     viewModel.sendPointerEvent(packet.x, packet.y, packet.buttons)
                 }
                 view.update(
-                    settings.mouseCaptureEnabled && uiState.connected && !showConnectionDialog,
+                    settings.mouseCaptureEnabled && uiState.connected && !connectionExpanded,
                     uiState.frame.width,
                     uiState.frame.height
                 )
@@ -256,27 +253,15 @@ fun VncScreen(
                     ) {
 
                         TextButton(
-
-                            onClick = {
-                                if (uiState.connected) viewModel.disconnect()
-                                val connection = viewModel.lastConnection()
-                                server = connection.host
-                                port = connection.port.toString()
-                                password = connection.password
-                                showConnectionDialog = true
-                            },
+                            onClick = { connectionExpanded = !connectionExpanded },
                             enabled = !uiState.connecting,
-                            modifier = Modifier
-                                // .align(Alignment.End)
-                                .safeDrawingPadding()
-                                .padding(0.dp)
-                                .background(
-                                    when {
-                                        uiState.connecting -> Color(0xFFB86E00)
-                                        uiState.connected -> Color(0xFF2E7D32)
-                                        else -> Color.Black.copy(alpha = 0.5f)
-                                    }
-                                )
+                            modifier = Modifier.background(
+                                when {
+                                    uiState.connecting -> Color(0xFFB86E00)
+                                    uiState.connected -> Color(0xFF2E7D32)
+                                    else -> Color.Black.copy(alpha = 0.5f)
+                                }
+                            )
                         ) {
                             Text(
                                 when {
@@ -287,7 +272,21 @@ fun VncScreen(
                                 color = Color.White
                             )
                         }
-
+                        if (connectionExpanded) {
+                            ConnectionMenu(
+                                state = uiState,
+                                server = server,
+                                port = port,
+                                password = password,
+                                onServerChange = { server = it },
+                                onPortChange = { port = it },
+                                onPasswordChange = { password = it },
+                                onInputFocusChange = { connectionInputFocused = it },
+                                onConnect = { viewModel.connect(server, it, password) },
+                                onDisconnect = { viewModel.disconnect() },
+                                onClose = { connectionExpanded = false }
+                            )
+                        }
 
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Switch(
@@ -335,8 +334,6 @@ fun VncScreen(
 
 
                         Row(verticalAlignment = Alignment.CenterVertically) {
-
-
                             TextButton(
                                 onClick = {
                                     updateSettings(settings.copy(
@@ -480,13 +477,13 @@ fun VncScreen(
                         Row(verticalAlignment = Alignment.CenterVertically) {
 
                             TextButton(
-                                onClick = { changeZoom.value(10) }
-                            ) { Text("@u+", color = Color.White) }
-
-                            TextButton(
                                 onClick = { changeZoom.value(-10) },
                                 enabled = settings.zoomPercent > 25
                             ) { Text("@i-", color = Color.White) }
+
+                            TextButton(
+                                onClick = { changeZoom.value(10) }
+                            ) { Text("@u+", color = Color.White) }
 
                             Text(" zoom : ${settings.zoomPercent}%", color = Color.White)
 
@@ -494,22 +491,24 @@ fun VncScreen(
 
 
                         Row(verticalAlignment = Alignment.CenterVertically) {
+
                             TextButton(onClick = { changePan.value(0, 1) }) {
-                                Text("@j ↑", color = Color.White)
+                                Text("@k ↓", color = Color.White)
                             }
 
                             TextButton(onClick = { changePan.value(0, -1) }) {
-                                Text("@k ↓", color = Color.White)
+                                Text("@j ↑", color = Color.White)
                             }
+
                             Text( " panY : ${settings.panY}", color = Color.White)
                         }
 
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            TextButton(onClick = { changePan.value(1, 0) }) {
+                            TextButton(onClick = { changePan.value(-1, 0) }) {
                                 Text("@l ←", color = Color.White)
                             }
 
-                            TextButton(onClick = { changePan.value(-1, 0) }) {
+                            TextButton(onClick = { changePan.value(1, 0) }) {
                                 Text("@h →", color = Color.White)
                             }
                             Text( " panX : ${settings.panX}", color = Color.White)
@@ -531,85 +530,7 @@ fun VncScreen(
         }
     }
 
-    if (showConnectionDialog) {
-        val validPort = port.toIntOrNull()?.takeIf { it in 1..65535 }
-        MaterialTheme(
-            colorScheme = darkColorScheme(
-                primary = Color.White,
-                onPrimary = Color.Black,
-                secondary = Color.White,
-                background = Color.Black,
-                onBackground = Color.White,
-                surface = Color.Black,
-                onSurface = Color.White,
-                surfaceVariant = Color.Black,
-                onSurfaceVariant = Color.White,
-                outline = Color.White,
-                error = Color.White,
-                onError = Color.Black
-            )
-        ) {
-            AlertDialog(
-                containerColor = Color.Black,
-                titleContentColor = Color.White,
-                textContentColor = Color.White,
-                onDismissRequest = { if (!uiState.connecting) showConnectionDialog = false },
-                title = { Text("vnc connect") },
-                text = {
-                    Column(
-                        modifier = Modifier
-                            .onPreviewKeyEvent { activity?.handleLeaderKeyEvent(it.nativeKeyEvent) == true }
-                            .verticalScroll(rememberScrollState()),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        OutlinedTextField(
-                            value = server,
-                            onValueChange = { server = it },
-                            label = { Text("server") },
-                            singleLine = true,
-                            enabled = !uiState.connecting,
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri)
-                        )
-                        OutlinedTextField(
-                            value = port,
-                            onValueChange = { port = it },
-                            label = { Text("port") },
-                            singleLine = true,
-                            enabled = !uiState.connecting,
-                            isError = validPort == null,
-                            supportingText = { if (validPort == null) Text("Informe uma porta de 1 a 65535") },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
-                        )
-                        OutlinedTextField(
-                            value = password,
-                            onValueChange = { password = it },
-                            label = { Text("pass") },
-                            singleLine = true,
-                            enabled = !uiState.connecting,
-                            visualTransformation = PasswordVisualTransformation(),
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
-                        )
-                        uiState.connectionError?.let { Text(it, color = Color.White) }
-                    }
-                },
-                confirmButton = {
-                    TextButton(
-                        enabled = !uiState.connecting && !uiState.connected && server.isNotBlank() && validPort != null,
-                        onClick = { validPort?.let { viewModel.connect(server, it, password) } }
-                    ) {
-                        Text(if (uiState.connecting) "connecting…" else "connect")
-                    }
-                },
-                dismissButton = {
-                    TextButton(
-                        enabled = !uiState.connecting,
-                        onClick = { showConnectionDialog = false }
-                    ) { Text("cancel") }
-                }
-            )
-        }
-    }
-    if (leadKB && !menuExpanded && !showConnectionDialog) {
+    if (leadKB && !menuExpanded && !connectionExpanded) {
         Popup(
             alignment = Alignment.BottomStart,
             onDismissRequest = {},
