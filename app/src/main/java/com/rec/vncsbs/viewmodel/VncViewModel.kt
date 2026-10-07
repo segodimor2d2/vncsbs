@@ -112,6 +112,21 @@ class VncViewModel(application: Application) : AndroidViewModel(application) {
         if (_uiState.value.connected) vncClient.sendKeyEvent(keysym, down)
     }
 
+    fun sendText(text: String) {
+        var index = 0
+        while (index < text.length) {
+            val codePoint = Character.codePointAt(text, index)
+            val keysym = when (codePoint) {
+                10, 13 -> 0xff0d
+                9 -> 0xff09
+                else -> if (codePoint <= 0xff) codePoint else 0x01000000 or codePoint
+            }
+            sendKeyEvent(keysym, true)
+            sendKeyEvent(keysym, false)
+            index += Character.charCount(codePoint)
+        }
+    }
+
     fun sendPointerEvent(x: Int, y: Int, buttons: Int) {
         val state = _uiState.value
         if (!state.connected || state.frame.width <= 0 || state.frame.height <= 0) return

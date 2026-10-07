@@ -20,6 +20,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -40,6 +43,8 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.testTag
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.rememberUpdatedState
@@ -65,7 +70,12 @@ fun VncScreen(
     var menuExpanded by rememberSaveable { mutableStateOf(false) }
     var connectionExpanded by rememberSaveable { mutableStateOf(false) }
     var connectionInputFocused by remember { mutableStateOf(false) }
+    var keyboardRequested by remember { mutableStateOf(false) }
+    val keyboardVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
     val mouseCaptureView = remember(context) { MouseCaptureView(context) }
+    LaunchedEffect(keyboardVisible) {
+        keyboardRequested = keyboardVisible
+    }
     androidx.compose.runtime.SideEffect {
         activity?.remoteKeyboardEnabled = uiState.connected && !connectionInputFocused
         activity?.localKeyboardInputFocused = connectionInputFocused
@@ -206,6 +216,10 @@ fun VncScreen(
             factory = { mouseCaptureView },
             modifier = Modifier.size(1.dp),
             update = { view ->
+                view.commitText = { text ->
+                    if (activity?.handleLeaderText(text) != true) viewModel.sendText(text)
+                }
+                view.sendKeyboardEvent = { activity?.dispatchKeyEvent(it) == true }
                 view.sendPointer = { packet ->
                     viewModel.sendPointerEvent(packet.x, packet.y, packet.buttons)
                 }
@@ -244,6 +258,7 @@ fun VncScreen(
                     modifier = Modifier
                         .fillMaxSize()
                         .safeDrawingPadding()
+                        .imePadding()
                         .padding(top = 64.dp, bottom = 16.dp)
                         .horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(16.dp)
@@ -332,6 +347,41 @@ fun VncScreen(
                             TextButton(onClick = { activity?.toggleLeaderKeyboard() }) {
                                 Text("leadKB", color = Color.White)
                             }
+                        }
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            TextButton(
+                                onClick = {
+                                    activity?.let { host ->
+                                        val controller = androidx.core.view.WindowCompat.getInsetsController(
+                                            host.window, mouseCaptureView)
+                                        if (keyboardVisible || keyboardRequested) {
+                                            keyboardRequested = false
+                                            controller.hide(androidx.core.view.WindowInsetsCompat.Type.ime())
+                                            mouseCaptureView.textInputEnabled = false
+                                        } else {
+                                            keyboardRequested = true
+                                            if (connectionInputFocused) {
+                                                androidx.core.view.WindowCompat.getInsetsController(
+                                                    host.window, host.currentFocus ?: mouseCaptureView
+                                                ).show(androidx.core.view.WindowInsetsCompat.Type.ime())
+                                            } else {
+                                                mouseCaptureView.textInputEnabled = true
+                                                mouseCaptureView.requestFocus()
+                                                mouseCaptureView.post {
+                                                    context.getSystemService(android.view.inputmethod.InputMethodManager::class.java)
+                                                        .restartInput(mouseCaptureView)
+                                                    controller.show(androidx.core.view.WindowInsetsCompat.Type.ime())
+                                                }
+                                            }
+                                        }
+                                    }
+                                },
+                                modifier = Modifier.testTag("android-keyboard-toggle")
+                            ) {
+                                Text("teclado", color = Color.White)
+                            }
+                            Text(if (keyboardVisible) "ligado" else "desligado", color = Color.White)
                         }
 
 
@@ -532,7 +582,7 @@ fun VncScreen(
         }
     }
 
-    if (leadKB && !menuExpanded && !connectionExpanded) {
+    if (leadKB && !menuExpanded && !connectionExpanded && !keyboardRequested && !keyboardVisible) {
         Popup(
             alignment = Alignment.BottomStart,
             onDismissRequest = {},

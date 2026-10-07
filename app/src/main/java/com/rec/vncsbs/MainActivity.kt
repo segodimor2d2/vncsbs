@@ -40,6 +40,13 @@ class MainActivity : ComponentActivity() {
         onCenterPan?.invoke()
     }
 
+    fun handleLeaderText(text: String): Boolean {
+        if (!leadKB || localKeyboardInputFocused) return false
+        android.view.KeyCharacterMap.load(android.view.KeyCharacterMap.VIRTUAL_KEYBOARD)
+            .getEvents(text.toCharArray())?.forEach { handleLeaderKeyEvent(it) }
+        return true
+    }
+
     fun handleLeaderKeyEvent(event: KeyEvent): Boolean {
         if (localKeyboardInputFocused) return false
         if (event.keyCode == KeyEvent.KEYCODE_SHIFT_LEFT || event.keyCode == KeyEvent.KEYCODE_SHIFT_RIGHT) {

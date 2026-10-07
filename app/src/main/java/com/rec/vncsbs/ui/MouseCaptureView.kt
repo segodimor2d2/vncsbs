@@ -4,12 +4,19 @@ import android.content.Context
 import android.os.Build
 import android.view.MotionEvent
 import android.view.View
+import android.view.KeyEvent
+import android.view.inputmethod.EditorInfo
+import android.view.inputmethod.InputConnection
+import android.text.InputType
 import com.rec.vncsbs.vnc.PointerPacket
 import com.rec.vncsbs.vnc.VncPointerState
 
 internal class MouseCaptureView(context: Context) : View(context) {
     private val pointer = VncPointerState()
     var sendPointer: (PointerPacket) -> Unit = {}
+    var commitText: (String) -> Unit = {}
+    var sendKeyboardEvent: (KeyEvent) -> Boolean = { false }
+    var textInputEnabled = false
     private var releaseRequested = false
     var captureEnabled = false
         private set
@@ -18,6 +25,17 @@ internal class MouseCaptureView(context: Context) : View(context) {
         isFocusable = true
         isFocusableInTouchMode = true
         importantForAccessibility = IMPORTANT_FOR_ACCESSIBILITY_NO
+    }
+
+    override fun onCheckIsTextEditor() = textInputEnabled
+
+    override fun onCreateInputConnection(outAttrs: EditorInfo): InputConnection? {
+        if (!textInputEnabled) return null
+        outAttrs.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_VISIBLE_PASSWORD or
+            InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+        outAttrs.imeOptions = EditorInfo.IME_ACTION_NONE or EditorInfo.IME_FLAG_NO_EXTRACT_UI or
+            EditorInfo.IME_FLAG_NO_FULLSCREEN
+        return RemoteInputConnection(this, { commitText(it) }, { sendKeyboardEvent(it) })
     }
 
     fun update(enabled: Boolean, width: Int, height: Int) {
