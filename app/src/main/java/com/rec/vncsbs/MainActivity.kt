@@ -28,6 +28,16 @@ class MainActivity : ComponentActivity() {
                     KeyEvent.KEYCODE_ESCAPE -> leadKB = false
                     KeyEvent.KEYCODE_C -> centerViewport()
                 }
+                if (!event.isCtrlPressed && !event.isAltPressed && !event.isMetaPressed) {
+                    when (event.unicodeChar) {
+                        'u'.code -> onZoomChange?.invoke(10)
+                        'i'.code -> onZoomChange?.invoke(-10)
+                        'y'.code -> onPanSensitivityChange?.invoke(10)
+                        'o'.code -> onPanSensitivityChange?.invoke(-10)
+                        'g'.code -> onToggleGyroPan?.invoke()
+                        'w'.code -> onToggleMenu?.invoke()
+                    }
+                }
             }
             return true
         }
@@ -52,20 +62,13 @@ class MainActivity : ComponentActivity() {
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (handleLeaderKeyEvent(event)) return true
         if (event.isCtrlPressed && event.isShiftPressed && event.keyCode in setOf(
-                KeyEvent.KEYCODE_W, KeyEvent.KEYCODE_U, KeyEvent.KEYCODE_I,
                 KeyEvent.KEYCODE_J, KeyEvent.KEYCODE_K, KeyEvent.KEYCODE_H, KeyEvent.KEYCODE_L,
-                KeyEvent.KEYCODE_Y, KeyEvent.KEYCODE_O, KeyEvent.KEYCODE_P, KeyEvent.KEYCODE_N, KeyEvent.KEYCODE_M
+                KeyEvent.KEYCODE_N, KeyEvent.KEYCODE_M
             )) {
             if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
                 when (event.keyCode) {
-                    KeyEvent.KEYCODE_W -> onToggleMenu?.invoke()
                     KeyEvent.KEYCODE_M -> centerViewport()
-                    KeyEvent.KEYCODE_P -> onToggleGyroPan?.invoke()
                     KeyEvent.KEYCODE_N -> onToggleGyroAutoCenter?.invoke()
-                    KeyEvent.KEYCODE_Y -> onPanSensitivityChange?.invoke(10)
-                    KeyEvent.KEYCODE_O -> onPanSensitivityChange?.invoke(-10)
-                    KeyEvent.KEYCODE_U -> onZoomChange?.invoke(10)
-                    KeyEvent.KEYCODE_I -> onZoomChange?.invoke(-10)
                     KeyEvent.KEYCODE_J -> onPanChange?.invoke(0, 1)
                     KeyEvent.KEYCODE_K -> onPanChange?.invoke(0, -1)
                     KeyEvent.KEYCODE_H -> onPanChange?.invoke(-1, 0)
