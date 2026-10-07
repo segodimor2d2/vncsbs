@@ -136,7 +136,14 @@ fun VncScreen(
     }
 
     val toggleGyroAutoCenter = rememberUpdatedState {
-        updateSettings(settings.copy(gyroAutoCenterEnabled = !settings.gyroAutoCenterEnabled))
+        settings = settings.copy(gyroAutoCenterEnabled = !settings.gyroAutoCenterEnabled)
+        settingsStore.save(settings)
+    }
+
+    val toggleMouseCapture = rememberUpdatedState {
+        val enabled = !settings.mouseCaptureEnabled
+        updateSettings(settings.copy(mouseCaptureEnabled = enabled))
+        if (enabled) menuExpanded = false
     }
 
     val adjustDisplay = rememberUpdatedState { key: Char ->
@@ -159,6 +166,7 @@ fun VncScreen(
     DisposableEffect(context) {
         val activity = context as? MainActivity
         activity?.onToggleMenu = { toggleMenu.value() }
+        activity?.onToggleMouseCapture = { toggleMouseCapture.value() }
         activity?.onCenterPan = { centerPan.value() }
         activity?.onToggleGyroPan = { toggleGyroPan.value() }
         activity?.onToggleGyroAutoCenter = { toggleGyroAutoCenter.value() }
@@ -170,6 +178,7 @@ fun VncScreen(
             mouseCaptureView.stopCapture()
             activity?.remoteKeyboardEnabled = false
             activity?.onToggleMenu = null
+            activity?.onToggleMouseCapture = null
             activity?.onCenterPan = null
             activity?.onToggleGyroPan = null
             activity?.onToggleGyroAutoCenter = null

@@ -50,6 +50,8 @@ class MainActivity : ComponentActivity() {
                 }
                 if (!event.isCtrlPressed && !event.isAltPressed && !event.isMetaPressed) {
                     when (event.unicodeChar) {
+                        // F alterna a captura; ao desativar, essa tecla libera o mouse.
+                        'F'.code -> onToggleMouseCapture?.invoke()
                         'R'.code, 'H'.code, 'L'.code, 'J'.code, 'K'.code,
                         '0'.code, '*'.code, '#'.code, '$'.code ->
                             onDisplayAdjustment?.invoke(event.unicodeChar.toChar())
@@ -91,6 +93,7 @@ class MainActivity : ComponentActivity() {
     }
 
     var onToggleMenu: (() -> Unit)? = null
+    var onToggleMouseCapture: (() -> Unit)? = null
     var onCenterPan: (() -> Unit)? = null
     var onToggleGyroPan: (() -> Unit)? = null
     var onToggleGyroAutoCenter: (() -> Unit)? = null
