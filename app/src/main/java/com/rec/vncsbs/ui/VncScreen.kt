@@ -69,6 +69,15 @@ fun VncScreen(
     var settings by remember(settingsStore) { mutableStateOf(settingsStore.load()) }
     var menuExpanded by rememberSaveable { mutableStateOf(false) }
     var showConnectionDialog by rememberSaveable { mutableStateOf(false) }
+    var captureMouse by rememberSaveable { mutableStateOf(false) }
+    val mouseCaptureView = remember(context) { MouseCaptureView(context) }
+    val exitMouseCapture = rememberUpdatedState {
+        if (android.os.Build.VERSION.SDK_INT >= 26 && mouseCaptureView.hasPointerCapture()) {
+            mouseCaptureView.stopCapture()
+            menuExpanded = true
+            true
+        } else false
+    }
     androidx.compose.runtime.SideEffect {
         activity?.remoteKeyboardEnabled = uiState.connected && !showConnectionDialog
     }
@@ -158,7 +167,10 @@ fun VncScreen(
         activity?.onPanChange = { dx, dy -> changePan.value(dx, dy) }
         activity?.onPanSensitivityChange = { changePanSensitivity.value(it) }
         activity?.onDisplayAdjustment = { adjustDisplay.value(it) }
+        activity?.onExitMouseCapture = { exitMouseCapture.value() }
         onDispose {
+            mouseCaptureView.stopCapture()
+            activity?.onExitMouseCapture = null
             activity?.remoteKeyboardEnabled = false
             activity?.onToggleMenu = null
             activity?.onCenterPan = null
@@ -182,6 +194,24 @@ fun VncScreen(
             .background(Color.Black)
             .toggleMenuWithTwoFingers { toggleMenu.value() }
     ) {
+        androidx.compose.ui.viewinterop.AndroidView(
+            factory = { mouseCaptureView },
+            modifier = Modifier.size(1.dp),
+            update = { view ->
+                view.onUnexpectedCaptureLoss = {
+                    captureMouse = false
+                    menuExpanded = true
+                }
+                view.sendPointer = { packet ->
+                    viewModel.sendPointerEvent(packet.x, packet.y, packet.buttons)
+                }
+                view.update(
+                    captureMouse && uiState.connected && !menuExpanded && !showConnectionDialog && !leadKB,
+                    uiState.frame.width,
+                    uiState.frame.height
+                )
+            }
+        )
         CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
             SbsRemoteView(
                 frame = uiState.frame,
@@ -349,6 +379,18 @@ fun VncScreen(
                                 enabled = gyroAvailable
                             )
                             Text(" giro (CSp) ", color = Color.White)
+                        }
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Switch(
+                                checked = captureMouse,
+                                onCheckedChange = {
+                                    captureMouse = it
+                                    if (it) menuExpanded = false
+                                },
+                                enabled = uiState.connected && android.os.Build.VERSION.SDK_INT >= 26
+                            )
+                            Text(" Capturar mouse (Esc abre menu)", color = Color.White)
                         }
 
                         Row(verticalAlignment = Alignment.CenterVertically) {

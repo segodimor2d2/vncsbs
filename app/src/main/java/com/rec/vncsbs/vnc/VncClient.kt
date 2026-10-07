@@ -17,12 +17,20 @@ class VncClient(
     private val keyboardWriter = java.util.concurrent.Executors.newSingleThreadExecutor()
 
     fun sendKeyEvent(keysym: Int, down: Boolean) {
+        sendInputMessage(encodeKeyEvent(keysym, down))
+    }
+
+    fun sendPointerEvent(x: Int, y: Int, buttons: Int) {
+        sendInputMessage(encodePointerEvent(x, y, buttons))
+    }
+
+    private fun sendInputMessage(message: ByteArray) {
         val output = keyboardOutput ?: return
         keyboardWriter.execute {
             if (keyboardOutput !== output) return@execute
             try {
                 synchronized(output) {
-                    output.write(encodeKeyEvent(keysym, down))
+                    output.write(message)
                     output.flush()
                 }
             } catch (_: java.io.IOException) {

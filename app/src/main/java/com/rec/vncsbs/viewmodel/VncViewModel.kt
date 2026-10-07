@@ -112,6 +112,16 @@ class VncViewModel(application: Application) : AndroidViewModel(application) {
         if (_uiState.value.connected) vncClient.sendKeyEvent(keysym, down)
     }
 
+    fun sendPointerEvent(x: Int, y: Int, buttons: Int) {
+        val state = _uiState.value
+        if (!state.connected || state.frame.width <= 0 || state.frame.height <= 0) return
+        vncClient.sendPointerEvent(
+            x.coerceIn(0, minOf(state.frame.width - 1, 65535)),
+            y.coerceIn(0, minOf(state.frame.height - 1, 65535)),
+            buttons
+        )
+    }
+
     override fun onCleared() {
         vncClient.close()
         super.onCleared()

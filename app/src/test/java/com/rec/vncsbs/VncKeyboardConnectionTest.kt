@@ -64,6 +64,16 @@ class VncKeyboardConnectionTest {
                     assertArrayEquals(byteArrayOf(4, 1, 0, 0, 0, 0, 0, 107), read(8))
                     assertArrayEquals(byteArrayOf(4, 0, 0, 0, 0, 0, 0, 107), read(8))
                     assertArrayEquals(byteArrayOf(4, 0, 0, 0, 0, 0, -1, -23), read(8))
+                    client.sendPointerEvent(10, 20, 1)
+                    client.sendKeyEvent(0xffe9, true)
+                    client.sendPointerEvent(30, 40, 1)
+                    client.sendPointerEvent(30, 40, 0)
+                    client.sendKeyEvent(0xffe9, false)
+                    assertArrayEquals(byteArrayOf(5, 1, 0, 10, 0, 20), read(6))
+                    assertArrayEquals(byteArrayOf(4, 1, 0, 0, 0, 0, -1, -23), read(8))
+                    assertArrayEquals(byteArrayOf(5, 1, 0, 30, 0, 40), read(6))
+                    assertArrayEquals(byteArrayOf(5, 0, 0, 30, 0, 40), read(6))
+                    assertArrayEquals(byteArrayOf(4, 0, 0, 0, 0, 0, -1, -23), read(8))
                 }
             } finally {
                 client.close()
