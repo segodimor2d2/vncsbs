@@ -13,6 +13,8 @@ import com.rec.vncsbs.vnc.VncPointerState
 
 internal class MouseCaptureView(context: Context) : View(context) {
     private val pointer = VncPointerState()
+    private var physicalButtons = 0
+    private var touchButtons = 0
     var sendPointer: (PointerPacket) -> Unit = {}
     var commitText: (String) -> Unit = {}
     var sendKeyboardEvent: (KeyEvent) -> Boolean = { false }
@@ -56,7 +58,34 @@ internal class MouseCaptureView(context: Context) : View(context) {
         pointer.center()?.let(sendPointer)
     }
 
+    fun moveTouch(dx: Float, dy: Float) {
+        pointer.move(dx, dy, physicalButtons or touchButtons)?.let(sendPointer)
+    }
+
+    fun setTouchButton(button: Int, pressed: Boolean) {
+        touchButtons = if (pressed) touchButtons or button else touchButtons and button.inv()
+        moveTouch(0f, 0f)
+    }
+
+    fun clickTouch(button: Int) {
+        setTouchButton(button, true)
+        setTouchButton(button, false)
+    }
+
+    fun scrollTouch(horizontal: Float, vertical: Float) {
+        pointer.scroll(horizontal, vertical).forEach(sendPointer)
+    }
+
+    fun releaseTouch() {
+        if (touchButtons != 0) {
+            touchButtons = 0
+            moveTouch(0f, 0f)
+        }
+    }
+
     fun releaseCapture() {
+        physicalButtons = 0
+        touchButtons = 0
         releaseRequested = true
         pointer.release()?.let(sendPointer)
         if (Build.VERSION.SDK_INT >= 26 && hasPointerCapture()) releasePointerCapture()
@@ -80,6 +109,8 @@ internal class MouseCaptureView(context: Context) : View(context) {
     override fun onPointerCaptureChange(hasCapture: Boolean) {
         super.onPointerCaptureChange(hasCapture)
         if (!hasCapture) {
+            physicalButtons = 0
+            touchButtons = 0
             pointer.release()?.let(sendPointer)
             if (!releaseRequested && captureEnabled && hasWindowFocus()) {
                 post {
@@ -99,6 +130,7 @@ internal class MouseCaptureView(context: Context) : View(context) {
 
     override fun onCapturedPointerEvent(event: MotionEvent): Boolean {
         if (!captureEnabled) return false
+        physicalButtons = event.buttonState
         when (event.actionMasked) {
             MotionEvent.ACTION_CANCEL -> pointer.release()?.let(sendPointer)
             MotionEvent.ACTION_SCROLL -> pointer.scroll(
@@ -107,14 +139,14 @@ internal class MouseCaptureView(context: Context) : View(context) {
             ).forEach(sendPointer)
             MotionEvent.ACTION_MOVE -> {
                 for (index in 0 until event.historySize) {
-                    pointer.move(event.getHistoricalX(index), event.getHistoricalY(index), event.buttonState)
+                    pointer.move(event.getHistoricalX(index), event.getHistoricalY(index), physicalButtons or touchButtons)
                         ?.let(sendPointer)
                 }
-                pointer.move(event.x, event.y, event.buttonState)?.let(sendPointer)
+                pointer.move(event.x, event.y, physicalButtons or touchButtons)?.let(sendPointer)
             }
             MotionEvent.ACTION_DOWN, MotionEvent.ACTION_UP,
             MotionEvent.ACTION_BUTTON_PRESS, MotionEvent.ACTION_BUTTON_RELEASE ->
-                pointer.move(0f, 0f, event.buttonState)?.let(sendPointer)
+                pointer.move(0f, 0f, physicalButtons or touchButtons)?.let(sendPointer)
         }
         return true
     }

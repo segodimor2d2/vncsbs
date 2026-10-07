@@ -205,12 +205,24 @@ fun VncScreen(
         contentColor = Color.White,
         disabledContentColor = Color.White.copy(alpha = 0.35f)
     )
+    val touchpadEnabled = settings.mouseCaptureEnabled && uiState.connected &&
+        !menuExpanded && !connectionExpanded
 
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.Black)
-            .toggleMenuWithTwoFingers { toggleMenu.value() }
+            .toggleMenuWithTwoFingers(enabled = !touchpadEnabled) { toggleMenu.value() }
+            .simulatedTouchpad(
+                enabled = touchpadEnabled,
+                density = LocalDensity.current.density,
+                onMove = { dx, dy -> mouseCaptureView.moveTouch(dx, dy) },
+                onClick = { mouseCaptureView.clickTouch(it) },
+                onDragButton = { mouseCaptureView.setTouchButton(1, it) },
+                onScroll = { horizontal, vertical -> mouseCaptureView.scrollTouch(horizontal, vertical) },
+                onMenu = { toggleMenu.value() },
+                onRelease = { mouseCaptureView.releaseTouch() }
+            )
     ) {
         androidx.compose.ui.viewinterop.AndroidView(
             factory = { mouseCaptureView },
@@ -582,7 +594,7 @@ fun VncScreen(
         }
     }
 
-    if (leadKB && !menuExpanded && !connectionExpanded && !keyboardRequested && !keyboardVisible) {
+    if (leadKB && !menuExpanded && !connectionExpanded && !keyboardRequested && !keyboardVisible && !touchpadEnabled) {
         Popup(
             alignment = Alignment.BottomStart,
             onDismissRequest = {},
@@ -606,8 +618,9 @@ fun VncScreen(
     }
 }
 
-private fun Modifier.toggleMenuWithTwoFingers(onToggle: () -> Unit): Modifier =
-    pointerInput(Unit) {
+private fun Modifier.toggleMenuWithTwoFingers(enabled: Boolean, onToggle: () -> Unit): Modifier =
+    pointerInput(enabled) {
+        if (!enabled) return@pointerInput
         awaitEachGesture {
             awaitFirstDown(requireUnconsumed = false, pass = PointerEventPass.Initial)
             var toggled = false
