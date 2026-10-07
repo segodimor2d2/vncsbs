@@ -34,6 +34,10 @@ class MainActivity : ComponentActivity() {
                         '0'.code, '*'.code, '#'.code, '$'.code ->
                             onDisplayAdjustment?.invoke(event.unicodeChar.toChar())
                         'u'.code -> onZoomChange?.invoke(10)
+                        'h'.code -> onPanChange?.invoke(1, 0)
+                        'l'.code -> onPanChange?.invoke(-1, 0)
+                        'j'.code -> onPanChange?.invoke(0, -1)
+                        'k'.code -> onPanChange?.invoke(0, 1)
                         'i'.code -> onZoomChange?.invoke(-10)
                         'y'.code -> onPanSensitivityChange?.invoke(10)
                         'o'.code -> onPanSensitivityChange?.invoke(-10)
