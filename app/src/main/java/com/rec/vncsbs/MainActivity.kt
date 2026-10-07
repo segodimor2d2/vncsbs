@@ -36,6 +36,7 @@ class MainActivity : ComponentActivity() {
                         'o'.code -> onPanSensitivityChange?.invoke(-10)
                         'g'.code -> onToggleGyroPan?.invoke()
                         'w'.code -> onToggleMenu?.invoke()
+                        't'.code -> onToggleGyroAutoCenter?.invoke()
                     }
                 }
             }
@@ -63,12 +64,11 @@ class MainActivity : ComponentActivity() {
         if (handleLeaderKeyEvent(event)) return true
         if (event.isCtrlPressed && event.isShiftPressed && event.keyCode in setOf(
                 KeyEvent.KEYCODE_J, KeyEvent.KEYCODE_K, KeyEvent.KEYCODE_H, KeyEvent.KEYCODE_L,
-                KeyEvent.KEYCODE_N, KeyEvent.KEYCODE_M
+                KeyEvent.KEYCODE_M
             )) {
             if (event.action == KeyEvent.ACTION_DOWN && event.repeatCount == 0) {
                 when (event.keyCode) {
                     KeyEvent.KEYCODE_M -> centerViewport()
-                    KeyEvent.KEYCODE_N -> onToggleGyroAutoCenter?.invoke()
                     KeyEvent.KEYCODE_J -> onPanChange?.invoke(0, 1)
                     KeyEvent.KEYCODE_K -> onPanChange?.invoke(0, -1)
                     KeyEvent.KEYCODE_H -> onPanChange?.invoke(-1, 0)
