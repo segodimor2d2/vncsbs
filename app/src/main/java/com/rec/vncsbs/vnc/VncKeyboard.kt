@@ -41,8 +41,11 @@ internal fun vncKeysym(event: KeyEvent): Int? {
         else -> null
     }
     if (special != null) return special
-    // Ctrl must remain a modifier, rather than converting letters to control characters.
-    val char = event.getUnicodeChar(event.metaState and KeyEvent.META_CTRL_MASK.inv())
+    // Shortcut modifiers are sent as separate key events. Android character maps
+    // can return zero or an unrelated character for Alt/Ctrl/Meta combinations.
+    // Keep Shift and lock states so the remote keysym still has the correct case.
+    val shortcutModifiers = KeyEvent.META_CTRL_MASK or KeyEvent.META_ALT_MASK or KeyEvent.META_META_MASK
+    val char = event.getUnicodeChar(event.metaState and shortcutModifiers.inv())
     if (char == 0 || char and android.view.KeyCharacterMap.COMBINING_ACCENT != 0) return null
     return if (char <= 0xff) char else 0x01000000 or char
 }

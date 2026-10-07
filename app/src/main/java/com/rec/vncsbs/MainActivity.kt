@@ -16,6 +16,7 @@ class MainActivity : ComponentActivity() {
 
     private lateinit var vncViewModel: VncViewModel
     private val remotePressedKeys = mutableMapOf<Pair<Int, Int>, Int>()
+    private val shiftPressTimes = mutableMapOf<Pair<Int, Int>, Long>()
     var remoteKeyboardEnabled = false
         set(value) {
             if (field && !value) releaseRemoteKeys()
@@ -34,6 +35,13 @@ class MainActivity : ComponentActivity() {
     }
 
     fun handleLeaderKeyEvent(event: KeyEvent): Boolean {
+        if (event.keyCode == KeyEvent.KEYCODE_SHIFT_LEFT || event.keyCode == KeyEvent.KEYCODE_SHIFT_RIGHT) {
+            val key = event.deviceId to event.keyCode
+            when (event.action) {
+                KeyEvent.ACTION_DOWN -> shiftPressTimes.putIfAbsent(key, event.eventTime)
+                KeyEvent.ACTION_UP -> shiftPressTimes.remove(key)
+            }
+        }
         if (leadKB) {
             if (event.action == KeyEvent.ACTION_DOWN) {
                 when (event.keyCode) {
@@ -61,10 +69,18 @@ class MainActivity : ComponentActivity() {
             }
             return true
         }
-        // Accept both a dedicated @ key and the @ character produced by a keyboard layout.
-        if (event.isShiftPressed &&
-            (event.keyCode == KeyEvent.KEYCODE_AT || event.unicodeChar == '@'.code)
-        ) {
+        // A firmware-generated @ may include Shift in the same input report.
+        // Require Shift to have arrived earlier for character-based keyboard layouts.
+        val shiftPressedAt = shiftPressTimes
+            .filterKeys { it.first == event.deviceId }
+            .values.minOrNull()
+        if (shouldActivateLeader(
+                isAtKey = event.keyCode == KeyEvent.KEYCODE_AT,
+                isAtCharacter = event.unicodeChar == '@'.code,
+                shiftPressed = event.isShiftPressed,
+                eventTime = event.downTime,
+                shiftPressedAt = shiftPressedAt
+            )) {
             if (event.action == KeyEvent.ACTION_DOWN) {
                 releaseRemoteKeys()
                 leadKB = true
@@ -105,7 +121,10 @@ class MainActivity : ComponentActivity() {
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
-        if (!hasFocus) releaseRemoteKeys()
+        if (!hasFocus) {
+            releaseRemoteKeys()
+            shiftPressTimes.clear()
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
