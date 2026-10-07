@@ -44,7 +44,7 @@ class MenuSettingsStore(context: Context) {
             preferences.getBoolean("gyro_pan_enabled", initial.gyroPanEnabled),
             preferences.getInt("gyro_quiet_threshold", initial.gyroQuietThreshold).coerceIn(1, 100),
             preferences.getInt("gyro_quiet_time_ms", initial.gyroQuietTimeMs).coerceAtLeast(500),
-            preferences.getBoolean("gyro_auto_center_enabled", initial.gyroAutoCenterEnabled)
+            gyroAutoCenterEnabled = false
         )
     }
 
@@ -61,7 +61,6 @@ class MenuSettingsStore(context: Context) {
             .putBoolean("gyro_pan_enabled", settings.gyroPanEnabled)
             .putInt("gyro_quiet_threshold", settings.gyroQuietThreshold)
             .putInt("gyro_quiet_time_ms", settings.gyroQuietTimeMs)
-            .putBoolean("gyro_auto_center_enabled", settings.gyroAutoCenterEnabled)
             .apply()
     }
 }

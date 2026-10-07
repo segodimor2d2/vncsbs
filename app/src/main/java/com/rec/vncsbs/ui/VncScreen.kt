@@ -71,13 +71,6 @@ fun VncScreen(
     var showConnectionDialog by rememberSaveable { mutableStateOf(false) }
     var captureMouse by rememberSaveable { mutableStateOf(false) }
     val mouseCaptureView = remember(context) { MouseCaptureView(context) }
-    val exitMouseCapture = rememberUpdatedState {
-        if (android.os.Build.VERSION.SDK_INT >= 26 && mouseCaptureView.hasPointerCapture()) {
-            mouseCaptureView.stopCapture()
-            menuExpanded = true
-            true
-        } else false
-    }
     androidx.compose.runtime.SideEffect {
         activity?.remoteKeyboardEnabled = uiState.connected && !showConnectionDialog
     }
@@ -131,13 +124,17 @@ fun VncScreen(
             settingsStore.save(settings)
         }
     }
-    val toggleGyroAutoCenter = rememberUpdatedState {
-        settings = settings.copy(gyroAutoCenterEnabled = !settings.gyroAutoCenterEnabled)
-        settingsStore.save(settings)
-    }
     fun updateSettings(value: MenuSettings) {
+        if (settings.gyroAutoCenterEnabled && !value.gyroAutoCenterEnabled) {
+            captureMouse = false
+            mouseCaptureView.stopCapture()
+        }
         settings = value
         settingsStore.save(value)
+    }
+
+    val toggleGyroAutoCenter = rememberUpdatedState {
+        updateSettings(settings.copy(gyroAutoCenterEnabled = !settings.gyroAutoCenterEnabled))
     }
 
     val adjustDisplay = rememberUpdatedState { key: Char ->
@@ -167,10 +164,8 @@ fun VncScreen(
         activity?.onPanChange = { dx, dy -> changePan.value(dx, dy) }
         activity?.onPanSensitivityChange = { changePanSensitivity.value(it) }
         activity?.onDisplayAdjustment = { adjustDisplay.value(it) }
-        activity?.onExitMouseCapture = { exitMouseCapture.value() }
         onDispose {
             mouseCaptureView.stopCapture()
-            activity?.onExitMouseCapture = null
             activity?.remoteKeyboardEnabled = false
             activity?.onToggleMenu = null
             activity?.onCenterPan = null
@@ -198,15 +193,11 @@ fun VncScreen(
             factory = { mouseCaptureView },
             modifier = Modifier.size(1.dp),
             update = { view ->
-                view.onUnexpectedCaptureLoss = {
-                    captureMouse = false
-                    menuExpanded = true
-                }
                 view.sendPointer = { packet ->
                     viewModel.sendPointerEvent(packet.x, packet.y, packet.buttons)
                 }
                 view.update(
-                    captureMouse && uiState.connected && !menuExpanded && !showConnectionDialog && !leadKB,
+                    captureMouse && uiState.connected && !showConnectionDialog,
                     uiState.frame.width,
                     uiState.frame.height
                 )
@@ -390,7 +381,7 @@ fun VncScreen(
                                 },
                                 enabled = uiState.connected && android.os.Build.VERSION.SDK_INT >= 26
                             )
-                            Text("mouse", color = Color.White)
+                            Text(" mouse", color = Color.White)
                         }
 
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -414,7 +405,7 @@ fun VncScreen(
                                 enabled = settings.gyroQuietThreshold < 100,
                                 colors = paddingButtonColors
                             ) { Text("+") }
-                            Text("limite quieto : ${settings.gyroQuietThreshold / 100f} rad/s", color = Color.White)
+                            Text("lim quieto : ${settings.gyroQuietThreshold / 100f} rad/s", color = Color.White)
                         }
 
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -450,28 +441,28 @@ fun VncScreen(
 
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             TextButton(onClick = { centerPan.value() }) {
-                                Text("Centralizar", color = Color.White)
+                                Text("center", color = Color.White)
                             }
                         }
 
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             TextButton(onClick = { changePan.value(0, 1) }) {
-                                Text("CSj ↑", color = Color.White)
+                                Text("@j ↑", color = Color.White)
                             }
 
                             TextButton(onClick = { changePan.value(0, -1) }) {
-                                Text("CSk ↓", color = Color.White)
+                                Text("@k ↓", color = Color.White)
                             }
                             Text( " panY : ${settings.panY}", color = Color.White)
                         }
 
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             TextButton(onClick = { changePan.value(1, 0) }) {
-                                Text("CSl ←", color = Color.White)
+                                Text("@l ←", color = Color.White)
                             }
 
                             TextButton(onClick = { changePan.value(-1, 0) }) {
-                                Text("CSh →", color = Color.White)
+                                Text("@h →", color = Color.White)
                             }
                             Text( " panX : ${settings.panX}", color = Color.White)
                         }

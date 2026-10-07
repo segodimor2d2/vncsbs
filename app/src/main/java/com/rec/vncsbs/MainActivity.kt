@@ -98,21 +98,8 @@ class MainActivity : ComponentActivity() {
     var onPanChange: ((Int, Int) -> Unit)? = null
     var onPanSensitivityChange: ((Int) -> Unit)? = null
     var onDisplayAdjustment: ((Char) -> Unit)? = null
-    var onExitMouseCapture: (() -> Boolean)? = null
-    private var mouseEscapeConsumed = false
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
-        if (event.keyCode == KeyEvent.KEYCODE_ESCAPE && !leadKB) {
-            if (event.action == KeyEvent.ACTION_UP && mouseEscapeConsumed) {
-                mouseEscapeConsumed = false
-                return true
-            }
-            if (event.action == KeyEvent.ACTION_DOWN &&
-                (mouseEscapeConsumed || onExitMouseCapture?.invoke() == true)) {
-                mouseEscapeConsumed = true
-                return true
-            }
-        }
         if (handleLeaderKeyEvent(event)) return true
         val key = event.deviceId to event.keyCode
         if (event.action == KeyEvent.ACTION_UP) {

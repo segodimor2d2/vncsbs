@@ -10,7 +10,6 @@ import com.rec.vncsbs.vnc.VncPointerState
 internal class MouseCaptureView(context: Context) : View(context) {
     private val pointer = VncPointerState()
     var sendPointer: (PointerPacket) -> Unit = {}
-    var onUnexpectedCaptureLoss: () -> Unit = {}
     private var releaseRequested = false
     var captureEnabled = false
         private set
@@ -61,8 +60,12 @@ internal class MouseCaptureView(context: Context) : View(context) {
         if (!hasCapture) {
             pointer.release()?.let(sendPointer)
             if (!releaseRequested && captureEnabled && hasWindowFocus()) {
-                captureEnabled = false
-                onUnexpectedCaptureLoss()
+                post {
+                    if (!releaseRequested && captureEnabled && hasWindowFocus() && Build.VERSION.SDK_INT >= 26) {
+                        requestFocus()
+                        requestPointerCapture()
+                    }
+                }
             }
         }
     }
