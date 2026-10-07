@@ -69,7 +69,6 @@ fun VncScreen(
     var settings by remember(settingsStore) { mutableStateOf(settingsStore.load()) }
     var menuExpanded by rememberSaveable { mutableStateOf(false) }
     var showConnectionDialog by rememberSaveable { mutableStateOf(false) }
-    var captureMouse by rememberSaveable { mutableStateOf(false) }
     val mouseCaptureView = remember(context) { MouseCaptureView(context) }
     androidx.compose.runtime.SideEffect {
         activity?.remoteKeyboardEnabled = uiState.connected && !showConnectionDialog
@@ -102,6 +101,7 @@ fun VncScreen(
     val centerPan = rememberUpdatedState {
         settings = settings.copy(panX = 0, panY = 0)
         settingsStore.save(settings)
+        mouseCaptureView.centerPointer()
     }
     var gyroQuietElapsedMs by remember { mutableStateOf(0) }
     val latestSettings = rememberUpdatedState(settings)
@@ -125,12 +125,14 @@ fun VncScreen(
         }
     }
     fun updateSettings(value: MenuSettings) {
-        if (settings.gyroAutoCenterEnabled && !value.gyroAutoCenterEnabled) {
-            captureMouse = false
+        val updated = if (settings.gyroAutoCenterEnabled && !value.gyroAutoCenterEnabled) {
+            value.copy(mouseCaptureEnabled = false)
+        } else value
+        if (settings.mouseCaptureEnabled && !updated.mouseCaptureEnabled) {
             mouseCaptureView.stopCapture()
         }
-        settings = value
-        settingsStore.save(value)
+        settings = updated
+        settingsStore.save(updated)
     }
 
     val toggleGyroAutoCenter = rememberUpdatedState {
@@ -197,7 +199,7 @@ fun VncScreen(
                     viewModel.sendPointerEvent(packet.x, packet.y, packet.buttons)
                 }
                 view.update(
-                    captureMouse && uiState.connected && !showConnectionDialog,
+                    settings.mouseCaptureEnabled && uiState.connected && !showConnectionDialog,
                     uiState.frame.width,
                     uiState.frame.height
                 )
@@ -369,14 +371,14 @@ fun VncScreen(
                                 onCheckedChange = { updateSettings(settings.copy(gyroPanEnabled = it)) },
                                 enabled = gyroAvailable
                             )
-                            Text(" giro (CSp) ", color = Color.White)
+                            Text(" giro @g", color = Color.White)
                         }
 
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Switch(
-                                checked = captureMouse,
+                                checked = settings.mouseCaptureEnabled,
                                 onCheckedChange = {
-                                    captureMouse = it
+                                    updateSettings(settings.copy(mouseCaptureEnabled = it))
                                     if (it) menuExpanded = false
                                 },
                                 enabled = uiState.connected && android.os.Build.VERSION.SDK_INT >= 26
@@ -391,7 +393,7 @@ fun VncScreen(
                                     updateSettings(settings.copy(gyroAutoCenterEnabled = it))
                                 }
                             )
-                            Text(" auto (CSn) : $gyroQuietElapsedMs / ${settings.gyroQuietTimeMs} ms", color = Color.White)
+                            Text(" autoCent: $gyroQuietElapsedMs / ${settings.gyroQuietTimeMs} ms", color = Color.White)
                         }
 
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -400,12 +402,13 @@ fun VncScreen(
                                 enabled = settings.gyroQuietThreshold > 1,
                                 colors = paddingButtonColors
                             ) { Text("−") }
+
                             TextButton(
                                 onClick = { updateSettings(settings.copy(gyroQuietThreshold = settings.gyroQuietThreshold + 1)) },
                                 enabled = settings.gyroQuietThreshold < 100,
                                 colors = paddingButtonColors
                             ) { Text("+") }
-                            Text("lim quieto : ${settings.gyroQuietThreshold / 100f} rad/s", color = Color.White)
+                            Text("limNoise : ${settings.gyroQuietThreshold / 100f} rad/s", color = Color.White)
                         }
 
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -420,7 +423,7 @@ fun VncScreen(
                                 enabled = settings.gyroQuietTimeMs <= Int.MAX_VALUE - 500,
                                 colors = paddingButtonColors
                             ) { Text("+") }
-                            Text("tempo quieto : ${settings.gyroQuietTimeMs} ms", color = Color.White)
+                            Text("autoCentT : ${settings.gyroQuietTimeMs} ms", color = Color.White)
                         }
 
                         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -441,7 +444,7 @@ fun VncScreen(
 
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             TextButton(onClick = { centerPan.value() }) {
-                                Text("center", color = Color.White)
+                                Text("vwCent", color = Color.White)
                             }
                         }
 

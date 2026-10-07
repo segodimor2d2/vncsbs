@@ -54,6 +54,13 @@ internal class VncPointerState {
         return result
     }
 
+    fun center(): PointerPacket? {
+        if (width == 0 || height == 0) return null
+        x = (width / 2).toFloat()
+        y = (height / 2).toFloat()
+        return packet()
+    }
+
     fun release(): PointerPacket? {
         val hadButtons = buttons != 0
         buttons = 0

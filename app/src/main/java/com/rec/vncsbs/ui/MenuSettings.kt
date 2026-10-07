@@ -11,11 +11,12 @@ data class MenuSettings(
     val zoomPercent: Int,
     val panX: Int = 0,
     val panY: Int = 0,
-    val panSensitivity: Int = 10,
-    val gyroPanEnabled: Boolean = false,
-    val gyroQuietThreshold: Int = 2,
-    val gyroQuietTimeMs: Int = 500,
-    val gyroAutoCenterEnabled: Boolean = false
+    val panSensitivity: Int,
+    val gyroPanEnabled: Boolean,
+    val gyroQuietThreshold: Int,
+    val gyroQuietTimeMs: Int,
+    val gyroAutoCenterEnabled: Boolean,
+    val mouseCaptureEnabled: Boolean
 )
 
 class MenuSettingsStore(context: Context) {
@@ -27,7 +28,13 @@ class MenuSettingsStore(context: Context) {
         resources.getInteger(R.integer.menu_default_outer_side_padding).coerceIn(0, 100),
         resources.getInteger(R.integer.menu_default_left_view_right_padding).coerceIn(0, 100),
         resources.getInteger(R.integer.menu_default_right_view_left_padding).coerceIn(0, 100),
-        resources.getInteger(R.integer.menu_default_zoom_percent).coerceIn(25, 400)
+        resources.getInteger(R.integer.menu_default_zoom_percent).coerceIn(25, 400),
+        panSensitivity = resources.getInteger(R.integer.menu_default_pan_sensitivity).coerceAtLeast(10),
+        gyroPanEnabled = resources.getBoolean(R.bool.menu_default_gyro_pan_enabled),
+        gyroQuietThreshold = resources.getInteger(R.integer.menu_default_gyro_quiet_threshold).coerceIn(1, 100),
+        gyroQuietTimeMs = resources.getInteger(R.integer.menu_default_gyro_quiet_time_ms).coerceAtLeast(500),
+        gyroAutoCenterEnabled = resources.getBoolean(R.bool.menu_default_gyro_auto_center_enabled),
+        mouseCaptureEnabled = resources.getBoolean(R.bool.menu_default_mouse_capture_enabled)
     )
 
     fun load(): MenuSettings {
@@ -44,7 +51,8 @@ class MenuSettingsStore(context: Context) {
             preferences.getBoolean("gyro_pan_enabled", initial.gyroPanEnabled),
             preferences.getInt("gyro_quiet_threshold", initial.gyroQuietThreshold).coerceIn(1, 100),
             preferences.getInt("gyro_quiet_time_ms", initial.gyroQuietTimeMs).coerceAtLeast(500),
-            gyroAutoCenterEnabled = false
+            gyroAutoCenterEnabled = initial.gyroAutoCenterEnabled,
+            mouseCaptureEnabled = initial.mouseCaptureEnabled
         )
     }
 

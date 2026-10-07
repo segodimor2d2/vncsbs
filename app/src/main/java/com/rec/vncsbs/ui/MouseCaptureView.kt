@@ -34,6 +34,10 @@ internal class MouseCaptureView(context: Context) : View(context) {
         }
     }
 
+    fun centerPointer() {
+        pointer.center()?.let(sendPointer)
+    }
+
     fun releaseCapture() {
         releaseRequested = true
         pointer.release()?.let(sendPointer)

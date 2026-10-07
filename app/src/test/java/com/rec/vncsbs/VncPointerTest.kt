@@ -22,6 +22,20 @@ class VncPointerTest {
         assertNull(pointer.move(Float.NaN, 0f, 0))
     }
 
+    @Test fun centeringUpdatesTheNextRelativeMovementWithoutChangingButtons() {
+        val pointer = VncPointerState()
+        assertNull(pointer.center())
+        pointer.resize(101, 81)
+        pointer.move(40f, 30f, 1)
+        val centered = pointer.center()!!
+        assertEquals(50, centered.x)
+        assertEquals(40, centered.y)
+        assertEquals(1, centered.buttons)
+        val next = pointer.move(3f, -2f, 1)!!
+        assertEquals(53, next.x)
+        assertEquals(38, next.y)
+    }
+
     @Test fun rightAndMiddleButtonsMapToVncAndReleaseOnCaptureLoss() {
         val pointer = VncPointerState()
         pointer.resize(100, 80)

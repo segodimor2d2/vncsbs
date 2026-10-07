@@ -1,10 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Valores em dp, usados no primeiro uso e pelo botão Reset. -->
+    <!-- Valores padrão usados no primeiro início e pelo botão Reset. -->
     <integer name="menu_default_general_padding">100</integer>
     <integer name="menu_default_outer_side_padding">100</integer>
-    <integer name="menu_default_left_view_right_padding">20</integer>
-    <integer name="menu_default_right_view_left_padding">20</integer>
-    <!-- Zoom em porcentagem: 100 = tamanho original ajustado à tela. -->
-    <integer name="menu_default_zoom_percent">100</integer>
+    <integer name="menu_default_left_view_right_padding">4</integer>
+    <integer name="menu_default_right_view_left_padding">4</integer>
+
+    <integer name="menu_default_zoom_percent">200</integer>
+    <integer name="menu_default_pan_sensitivity">90</integer>
+
+    <integer name="menu_default_gyro_quiet_threshold">15</integer>
+    <integer name="menu_default_gyro_quiet_time_ms">2000</integer>
+
+    <bool name="menu_default_gyro_pan_enabled">false</bool>
+    <bool name="menu_default_gyro_auto_center_enabled">false</bool>
+    <bool name="menu_default_mouse_capture_enabled">false</bool>
 </resources>
