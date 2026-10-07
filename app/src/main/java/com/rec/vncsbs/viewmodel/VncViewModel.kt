@@ -117,13 +117,6 @@ class VncViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
     ) { frame ->
-
-        println(
-            "VncViewModel: RECEBEU FRAME " +
-                "${frame.width}x${frame.height} " +
-                "${frame.pixels.size} bytes"
-        )
-
         frameChannel.trySend(frame)
     }
 
@@ -136,10 +129,6 @@ class VncViewModel(application: Application) : AndroidViewModel(application) {
             for (frame in frameChannel) {
 
                 _uiState.update { it.copy(frame = frame) }
-
-                println(
-                    "VncViewModel: STATE ATUALIZADO"
-                )
             }
         }
     }

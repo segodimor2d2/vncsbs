@@ -424,12 +424,6 @@ class VncClient(
                         output.flush()
                     }
 
-                    println(
-                        "VncClient: FramebufferUpdateRequest enviado = " +
-                            "${framebufferWidth}x${framebufferHeight} " +
-                            "incremental=$incremental"
-                    )
-
                     val messageType = input.read()
 
                     if (messageType < 0) {
@@ -437,10 +431,6 @@ class VncClient(
                             "Conexão encerrada ao ler FramebufferUpdate"
                         )
                     }
-
-                    println(
-                        "VncClient: mensagem recebida = $messageType"
-                    )
 
                     if (messageType != 0) {
                         throw Exception(
@@ -465,31 +455,11 @@ class VncClient(
                         rectangleCountBytes
                     )
 
-                    println(
-                        "VncClient: rectangleCount bytes = " +
-                            "%02X %02X".format(
-                                rectangleCountBytes[0].toInt() and 0xFF,
-                                rectangleCountBytes[1].toInt() and 0xFF
-                            )
-                    )
-
                     val rectangleCount =
                         ((rectangleCountBytes[0].toInt() and 0xFF) shl 8) or
                         (rectangleCountBytes[1].toInt() and 0xFF)
 
-                    println(
-                        "VncClient: rectangles = $rectangleCount"
-                    )
-
                     if (rectangleCount > 0) {
-
-                        val rectanglesStart = System.currentTimeMillis()
-
-                        println(
-                            "VncClient: iniciando leitura de $rectangleCount rectangles"
-                        )
-
-                        var totalRectangleBytes = 0L
 
                         for (rectangleIndex in 0 until rectangleCount) {
 
@@ -522,13 +492,6 @@ class VncClient(
                                 ((rectangleHeader[10].toInt() and 0xFF) shl 8) or
                                 (rectangleHeader[11].toInt() and 0xFF)
 
-                            println(
-                                "VncClient: rectangle $rectangleIndex = " +
-                                    "${rectX},${rectY} " +
-                                    "${rectWidth}x${rectHeight} " +
-                                    "encoding=$encoding"
-                            )
-
                             if (encoding != 0) {
                                 throw Exception(
                                     "Encoding não suportado: $encoding"
@@ -538,29 +501,13 @@ class VncClient(
                             val pixelBytes =
                                 rectWidth * rectHeight * 4
 
-                            totalRectangleBytes += pixelBytes
-
                             val pixels =
                                 ByteArray(pixelBytes)
-
-                            val readStart = System.currentTimeMillis()
 
                             readFully(
                                 input,
                                 pixels
                             )
-
-                            val readTime =
-                                System.currentTimeMillis() - readStart
-
-                            if (readTime > 20) {
-                                println(
-                                    "VncClient: rectangle $rectangleIndex " +
-                                        "read = ${readTime} ms " +
-                                        "${rectWidth}x${rectHeight} " +
-                                        "$pixelBytes bytes"
-                                )
-                            }
 
                             for (y in 0 until rectHeight) {
 
@@ -581,26 +528,7 @@ class VncClient(
 
                         }
 
-                        println(
-                            "VncClient: rectangles = $rectangleCount " +
-                                "bytes = $totalRectangleBytes"
-                        )
-
-                        println(
-                            "VncClient: rectangles total = " +
-                                (System.currentTimeMillis() - rectanglesStart) +
-                                " ms"
-                        )
-
-                        val frameStart = System.currentTimeMillis()
-
                         val framePixels = framebufferPixels.copyOf()
-
-                        println(
-                            "VncClient: copyOf = " +
-                                (System.currentTimeMillis() - frameStart) +
-                                " ms"
-                        )
 
                         onFrame(
                             RemoteFrame(
@@ -609,13 +537,6 @@ class VncClient(
                                 pixels = framePixels
                             )
                         )
-
-                        println(
-                            "VncClient: onFrame total = " +
-                                (System.currentTimeMillis() - frameStart) +
-                                " ms"
-                        )
-
 
                     }
 
