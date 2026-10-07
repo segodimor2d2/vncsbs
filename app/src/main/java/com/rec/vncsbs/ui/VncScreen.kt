@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.rememberUpdatedState
@@ -58,7 +59,8 @@ fun VncScreen(
     val activity = context as? MainActivity
     val leadKB = activity?.leadKB == true
     val leaderFocusRequester = remember { FocusRequester() }
-    val settingsStore = remember(context) { MenuSettingsStore(context) }
+    val orientation = LocalConfiguration.current.orientation
+    val settingsStore = remember(context, orientation) { MenuSettingsStore(context, orientation) }
     var settings by remember(settingsStore) { mutableStateOf(settingsStore.load()) }
     var menuExpanded by rememberSaveable { mutableStateOf(false) }
     var connectionExpanded by rememberSaveable { mutableStateOf(false) }

@@ -9,6 +9,14 @@
     <integer name="menu_default_zoom_percent">200</integer>
     <integer name="menu_default_pan_sensitivity">90</integer>
 
+    <!-- Ajustes alternativos para o modo retrato (vertical). -->
+    <integer name="menu_default_portrait_general_padding">0</integer>
+    <integer name="menu_default_portrait_outer_side_padding">0</integer>
+    <integer name="menu_default_portrait_left_view_right_padding">0</integer>
+    <integer name="menu_default_portrait_right_view_left_padding">0</integer>
+    <integer name="menu_default_portrait_zoom_percent">330</integer>
+    <integer name="menu_default_portrait_pan_sensitivity">360</integer>
+
     <integer name="menu_default_gyro_quiet_threshold">15</integer>
     <integer name="menu_default_gyro_quiet_time_ms">2000</integer>
 
