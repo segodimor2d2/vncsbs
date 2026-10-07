@@ -13,6 +13,23 @@ class VncClient(
 ) {
 
     private var socket: Socket? = null
+    @Volatile private var keyboardOutput: java.io.OutputStream? = null
+    private val keyboardWriter = java.util.concurrent.Executors.newSingleThreadExecutor()
+
+    fun sendKeyEvent(keysym: Int, down: Boolean) {
+        val output = keyboardOutput ?: return
+        keyboardWriter.execute {
+            if (keyboardOutput !== output) return@execute
+            try {
+                synchronized(output) {
+                    output.write(encodeKeyEvent(keysym, down))
+                    output.flush()
+                }
+            } catch (_: java.io.IOException) {
+                if (keyboardOutput === output) disconnect()
+            }
+        }
+    }
 
     fun connect(
         host: String,
@@ -363,6 +380,7 @@ class VncClient(
                 )
 
                 newSocket.soTimeout = 0
+                keyboardOutput = output
                 onConnectionChanged(true)
 
                 val framebufferPixels =
@@ -393,8 +411,10 @@ class VncClient(
                     request[9] =
                         framebufferHeight.toByte()
 
-                    output.write(request)
-                    output.flush()
+                    synchronized(output) {
+                        output.write(request)
+                        output.flush()
+                    }
 
                     println(
                         "VncClient: FramebufferUpdateRequest enviado = " +
@@ -600,6 +620,7 @@ class VncClient(
                 )
 
             } finally {
+                keyboardOutput = null
                 try {
                     socket?.close()
                 } catch (_: Exception) {
@@ -611,6 +632,7 @@ class VncClient(
     }
 
     fun disconnect() {
+        keyboardOutput = null
         try {
             socket?.close()
         } catch (_: Exception) {
@@ -619,6 +641,11 @@ class VncClient(
         socket = null
 
         println("VncClient: disconnect")
+    }
+
+    fun close() {
+        disconnect()
+        keyboardWriter.shutdown()
     }
 
     fun sendTestFrame() {

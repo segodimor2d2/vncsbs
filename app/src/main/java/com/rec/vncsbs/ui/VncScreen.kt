@@ -68,6 +68,9 @@ fun VncScreen(
     var settings by remember(settingsStore) { mutableStateOf(settingsStore.load()) }
     var menuExpanded by rememberSaveable { mutableStateOf(false) }
     var showConnectionDialog by rememberSaveable { mutableStateOf(false) }
+    androidx.compose.runtime.SideEffect {
+        activity?.remoteKeyboardEnabled = uiState.connected && !showConnectionDialog
+    }
     var server by rememberSaveable { mutableStateOf("") }
     var port by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
@@ -155,6 +158,7 @@ fun VncScreen(
         activity?.onPanSensitivityChange = { changePanSensitivity.value(it) }
         activity?.onDisplayAdjustment = { adjustDisplay.value(it) }
         onDispose {
+            activity?.remoteKeyboardEnabled = false
             activity?.onToggleMenu = null
             activity?.onCenterPan = null
             activity?.onToggleGyroPan = null

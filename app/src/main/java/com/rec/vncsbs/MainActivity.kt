@@ -10,10 +10,22 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.rec.vncsbs.ui.VncScreen
 import com.rec.vncsbs.viewmodel.VncViewModel
+import com.rec.vncsbs.vnc.vncKeysym
 
 class MainActivity : ComponentActivity() {
 
     private lateinit var vncViewModel: VncViewModel
+    private val remotePressedKeys = mutableMapOf<Pair<Int, Int>, Int>()
+    var remoteKeyboardEnabled = false
+        set(value) {
+            if (field && !value) releaseRemoteKeys()
+            field = value
+        }
+
+    private fun releaseRemoteKeys() {
+        remotePressedKeys.values.forEach { vncViewModel.sendKeyEvent(it, false) }
+        remotePressedKeys.clear()
+    }
     var leadKB by mutableStateOf(false)
         private set
 
@@ -53,7 +65,10 @@ class MainActivity : ComponentActivity() {
         if (event.isShiftPressed &&
             (event.keyCode == KeyEvent.KEYCODE_AT || event.unicodeChar == '@'.code)
         ) {
-            if (event.action == KeyEvent.ACTION_DOWN) leadKB = true
+            if (event.action == KeyEvent.ACTION_DOWN) {
+                releaseRemoteKeys()
+                leadKB = true
+            }
             return true
         }
         return false
@@ -70,7 +85,27 @@ class MainActivity : ComponentActivity() {
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (handleLeaderKeyEvent(event)) return true
+        val key = event.deviceId to event.keyCode
+        if (event.action == KeyEvent.ACTION_UP) {
+            remotePressedKeys.remove(key)?.let {
+                vncViewModel.sendKeyEvent(it, false)
+                return true
+            }
+        }
+        if (remoteKeyboardEnabled && event.action == KeyEvent.ACTION_DOWN) {
+            val keysym = remotePressedKeys[key] ?: vncKeysym(event)
+            if (keysym != null) {
+                remotePressedKeys[key] = keysym
+                vncViewModel.sendKeyEvent(keysym, true)
+                return true
+            }
+        }
         return super.dispatchKeyEvent(event)
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        if (!hasFocus) releaseRemoteKeys()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {

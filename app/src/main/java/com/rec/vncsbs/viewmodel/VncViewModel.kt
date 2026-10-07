@@ -108,6 +108,15 @@ class VncViewModel(application: Application) : AndroidViewModel(application) {
         vncClient.disconnect()
     }
 
+    fun sendKeyEvent(keysym: Int, down: Boolean) {
+        if (_uiState.value.connected) vncClient.sendKeyEvent(keysym, down)
+    }
+
+    override fun onCleared() {
+        vncClient.close()
+        super.onCleared()
+    }
+
     private fun createTestFrame(): RemoteFrame {
 
         val width = 320
