@@ -383,6 +383,9 @@ fun VncScreen(
                         }
 
                         Row(verticalAlignment = Alignment.CenterVertically) {
+                            TextButton(onClick = { centerPan.value() }) {
+                                Text("Centralizar", color = Color.White)
+                            }
                         }
 
                         Row(verticalAlignment = Alignment.CenterVertically) {
