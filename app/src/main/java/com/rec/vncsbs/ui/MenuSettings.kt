@@ -24,11 +24,11 @@ class MenuSettingsStore(context: Context) {
     private val preferences = context.getSharedPreferences("menu_settings", Context.MODE_PRIVATE)
 
     fun defaults() = MenuSettings(
-        resources.getInteger(R.integer.menu_default_general_padding).coerceIn(0, 100),
-        resources.getInteger(R.integer.menu_default_outer_side_padding).coerceIn(0, 100),
+        resources.getInteger(R.integer.menu_default_general_padding).coerceAtLeast(0),
+        resources.getInteger(R.integer.menu_default_outer_side_padding).coerceAtLeast(0),
         resources.getInteger(R.integer.menu_default_left_view_right_padding).coerceIn(0, 100),
         resources.getInteger(R.integer.menu_default_right_view_left_padding).coerceIn(0, 100),
-        resources.getInteger(R.integer.menu_default_zoom_percent).coerceIn(25, 400),
+        resources.getInteger(R.integer.menu_default_zoom_percent).coerceAtLeast(25),
         panSensitivity = resources.getInteger(R.integer.menu_default_pan_sensitivity).coerceAtLeast(10),
         gyroPanEnabled = resources.getBoolean(R.bool.menu_default_gyro_pan_enabled),
         gyroQuietThreshold = resources.getInteger(R.integer.menu_default_gyro_quiet_threshold).coerceIn(1, 100),
@@ -40,11 +40,11 @@ class MenuSettingsStore(context: Context) {
     fun load(): MenuSettings {
         val initial = defaults()
         return MenuSettings(
-            preferences.getInt("general", initial.generalPadding).coerceIn(0, 100),
-            preferences.getInt("outer_sides", initial.outerSidePadding).coerceIn(0, 100),
+            preferences.getInt("general", initial.generalPadding).coerceAtLeast(0),
+            preferences.getInt("outer_sides", initial.outerSidePadding).coerceAtLeast(0),
             preferences.getInt("left_right", initial.leftViewRightPadding).coerceIn(0, 100),
             preferences.getInt("right_left", initial.rightViewLeftPadding).coerceIn(0, 100),
-            preferences.getInt("zoom_percent", initial.zoomPercent).coerceIn(25, 400),
+            preferences.getInt("zoom_percent", initial.zoomPercent).coerceAtLeast(25),
             preferences.getInt("pan_x", initial.panX),
             preferences.getInt("pan_y", initial.panY),
             preferences.getInt("pan_sensitivity", initial.panSensitivity).coerceAtLeast(10),

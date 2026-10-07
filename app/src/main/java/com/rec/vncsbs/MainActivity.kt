@@ -30,6 +30,11 @@ class MainActivity : ComponentActivity() {
     var leadKB by mutableStateOf(false)
         private set
 
+    fun toggleLeaderKeyboard() {
+        if (!leadKB) releaseRemoteKeys()
+        leadKB = !leadKB
+    }
+
     fun centerViewport() {
         onCenterPan?.invoke()
     }

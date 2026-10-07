@@ -81,7 +81,10 @@ fun VncScreen(
     }
     val toggleMenu = rememberUpdatedState { menuExpanded = !menuExpanded }
     val changeZoom = rememberUpdatedState { delta: Int ->
-        settings = settings.copy(zoomPercent = (settings.zoomPercent + delta).coerceIn(25, 400))
+        settings = settings.copy(
+            zoomPercent = (settings.zoomPercent.toLong() + delta)
+                .coerceIn(25L, Int.MAX_VALUE.toLong()).toInt()
+        )
         settingsStore.save(settings)
     }
     val changePan = rememberUpdatedState { dx: Int, dy: Int ->
@@ -149,9 +152,9 @@ fun VncScreen(
     val adjustDisplay = rememberUpdatedState { key: Char ->
         val updated = when (key) {
             'R' -> settingsStore.defaults()
-            'H' -> settings.copy(generalPadding = (settings.generalPadding + 2).coerceAtMost(100))
+            'H' -> settings.copy(generalPadding = (settings.generalPadding.toLong() + 2).coerceAtMost(Int.MAX_VALUE.toLong()).toInt())
             'L' -> settings.copy(generalPadding = (settings.generalPadding - 2).coerceAtLeast(0))
-            'J' -> settings.copy(outerSidePadding = (settings.outerSidePadding + 2).coerceAtMost(100))
+            'J' -> settings.copy(outerSidePadding = (settings.outerSidePadding.toLong() + 2).coerceAtMost(Int.MAX_VALUE.toLong()).toInt())
             'K' -> settings.copy(outerSidePadding = (settings.outerSidePadding - 2).coerceAtLeast(0))
             '0' -> settings.copy(leftViewRightPadding = (settings.leftViewRightPadding + 2).coerceAtMost(100))
             '*' -> settings.copy(leftViewRightPadding = (settings.leftViewRightPadding - 2).coerceAtLeast(0))
@@ -230,12 +233,14 @@ fun VncScreen(
         }
 
         if (menuExpanded) {
+
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(Color.Black.copy(alpha = 0.5f)),
                 contentAlignment = Alignment.CenterStart
             ) {
+
                 Row(
                     modifier = Modifier
                         .fillMaxSize()
@@ -250,14 +255,87 @@ fun VncScreen(
                             .verticalScroll(rememberScrollState())
                     ) {
 
+                        TextButton(
+
+                            onClick = {
+                                if (uiState.connected) viewModel.disconnect()
+                                val connection = viewModel.lastConnection()
+                                server = connection.host
+                                port = connection.port.toString()
+                                password = connection.password
+                                showConnectionDialog = true
+                            },
+                            enabled = !uiState.connecting,
+                            modifier = Modifier
+                                // .align(Alignment.End)
+                                .safeDrawingPadding()
+                                .padding(0.dp)
+                                .background(
+                                    when {
+                                        uiState.connecting -> Color(0xFFB86E00)
+                                        uiState.connected -> Color(0xFF2E7D32)
+                                        else -> Color.Black.copy(alpha = 0.5f)
+                                    }
+                                )
+                        ) {
+                            Text(
+                                when {
+                                    uiState.connecting -> "connecting…"
+                                    uiState.connected -> "vnc connected"
+                                    else -> "vnc connect"
+                                },
+                                color = Color.White
+                            )
+                        }
+
+
                         Row(verticalAlignment = Alignment.CenterVertically) {
-                            TextButton(
-                                onClick = { updateSettings(settingsStore.defaults()) },
-                                modifier = Modifier.padding(horizontal = 0.dp)
-                            ) { Text("reset ", color = Color.White) }
+                            Switch(
+                                checked = settings.gyroPanEnabled && gyroAvailable,
+                                onCheckedChange = { updateSettings(settings.copy(gyroPanEnabled = it)) },
+                                enabled = gyroAvailable
+                            )
+                            Text(" giro @g", color = Color.White)
                         }
 
                         Row(verticalAlignment = Alignment.CenterVertically) {
+                            Switch(
+                                checked = settings.mouseCaptureEnabled,
+                                onCheckedChange = {
+                                    updateSettings(settings.copy(mouseCaptureEnabled = it))
+                                    if (it) menuExpanded = false
+                                },
+                                enabled = uiState.connected && android.os.Build.VERSION.SDK_INT >= 26
+                            )
+                            Text(" mouse", color = Color.White)
+                        }
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Switch(
+                                checked = settings.gyroAutoCenterEnabled,
+                                onCheckedChange = {
+                                    updateSettings(settings.copy(gyroAutoCenterEnabled = it))
+                                }
+                            )
+                            Text(" autoCent: $gyroQuietElapsedMs / ${settings.gyroQuietTimeMs} ms", color = Color.White)
+                        }
+
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            TextButton(onClick = { centerPan.value() }) {
+                                Text("viewCent", color = Color.White)
+                            }
+                        }
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            TextButton(onClick = { activity?.toggleLeaderKeyboard() }) {
+                                Text("leadKB", color = Color.White)
+                            }
+                        }
+
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+
 
                             TextButton(
                                 onClick = {
@@ -271,10 +349,10 @@ fun VncScreen(
                             TextButton(
                                 onClick = {
                                     updateSettings(settings.copy(
-                                        generalPadding = (settings.generalPadding + 2).coerceAtMost(100)
+                                        generalPadding = (settings.generalPadding.toLong() + 2)
+                                            .coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
                                     ))
                                 },
-                                enabled = settings.generalPadding < 100,
                                 colors = paddingButtonColors
                             ) { Text("+") }
                             Text("allPad ", color = Color.White)
@@ -294,10 +372,10 @@ fun VncScreen(
                             TextButton(
                                 onClick = {
                                     updateSettings(settings.copy(
-                                        outerSidePadding = (settings.outerSidePadding + 2).coerceAtMost(100)
+                                        outerSidePadding = (settings.outerSidePadding.toLong() + 2)
+                                            .coerceAtMost(Int.MAX_VALUE.toLong()).toInt()
                                     ))
                                 },
-                                enabled = settings.outerSidePadding < 100,
                                 colors = paddingButtonColors
                             ) { Text("+") }
                             Text("< pad > ", color = Color.White)
@@ -349,6 +427,7 @@ fun VncScreen(
                             Text("R-padL ", color = Color.White)
                             Text("${settings.rightViewLeftPadding} dp", color = Color.White)
                         }
+
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             TextButton(
                                 onClick = {
@@ -367,43 +446,6 @@ fun VncScreen(
                             Text("sensPan : ${settings.panSensitivity} dp", color = Color.White)
                         }
 
-                    }
-
-                    Column(
-                        modifier = Modifier
-                            .widthIn(max = 440.dp)
-                            .verticalScroll(rememberScrollState())
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Switch(
-                                checked = settings.gyroPanEnabled && gyroAvailable,
-                                onCheckedChange = { updateSettings(settings.copy(gyroPanEnabled = it)) },
-                                enabled = gyroAvailable
-                            )
-                            Text(" giro @g", color = Color.White)
-                        }
-
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Switch(
-                                checked = settings.mouseCaptureEnabled,
-                                onCheckedChange = {
-                                    updateSettings(settings.copy(mouseCaptureEnabled = it))
-                                    if (it) menuExpanded = false
-                                },
-                                enabled = uiState.connected && android.os.Build.VERSION.SDK_INT >= 26
-                            )
-                            Text(" mouse", color = Color.White)
-                        }
-
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Switch(
-                                checked = settings.gyroAutoCenterEnabled,
-                                onCheckedChange = {
-                                    updateSettings(settings.copy(gyroAutoCenterEnabled = it))
-                                }
-                            )
-                            Text(" autoCent: $gyroQuietElapsedMs / ${settings.gyroQuietTimeMs} ms", color = Color.White)
-                        }
 
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             TextButton(
@@ -432,30 +474,24 @@ fun VncScreen(
                                 enabled = settings.gyroQuietTimeMs <= Int.MAX_VALUE - 500,
                                 colors = paddingButtonColors
                             ) { Text("+") }
-                            Text("autoCentT : ${settings.gyroQuietTimeMs} ms", color = Color.White)
+                            Text("tAutoCent : ${settings.gyroQuietTimeMs} ms", color = Color.White)
                         }
 
                         Row(verticalAlignment = Alignment.CenterVertically) {
 
                             TextButton(
-                                onClick = { changeZoom.value(10) },
-                                enabled = settings.zoomPercent < 400
-                            ) { Text("CSu+", color = Color.White) }
+                                onClick = { changeZoom.value(10) }
+                            ) { Text("@u+", color = Color.White) }
 
                             TextButton(
                                 onClick = { changeZoom.value(-10) },
                                 enabled = settings.zoomPercent > 25
-                            ) { Text("CSi-", color = Color.White) }
+                            ) { Text("@i-", color = Color.White) }
 
                             Text(" zoom : ${settings.zoomPercent}%", color = Color.White)
 
                         }
 
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            TextButton(onClick = { centerPan.value() }) {
-                                Text("vwCent", color = Color.White)
-                            }
-                        }
 
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             TextButton(onClick = { changePan.value(0, 1) }) {
@@ -479,47 +515,19 @@ fun VncScreen(
                             Text( " panX : ${settings.panX}", color = Color.White)
                         }
 
+
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            TextButton(
+                                onClick = { updateSettings(settingsStore.defaults()) },
+                                modifier = Modifier.padding(horizontal = 0.dp)
+                            ) { Text("reset ", color = Color.White) }
+                        }
+
                     }
 
                 }
             }
-        }
 
-        if (menuExpanded) {
-
-            TextButton(
-
-                onClick = {
-                    if (uiState.connected) viewModel.disconnect()
-                    val connection = viewModel.lastConnection()
-                    server = connection.host
-                    port = connection.port.toString()
-                    password = connection.password
-                    showConnectionDialog = true
-                },
-                enabled = !uiState.connecting,
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .safeDrawingPadding()
-                    .padding(8.dp)
-                    .background(
-                        when {
-                            uiState.connecting -> Color(0xFFB86E00)
-                            uiState.connected -> Color(0xFF2E7D32)
-                            else -> Color.Black.copy(alpha = 0.5f)
-                        }
-                    )
-
-            ) {
-                Text(
-                    when {
-                        uiState.connecting -> "CONECTANDO…"
-                        uiState.connected -> "VNC CONECTADO"
-                        else -> "VNC CONNECT"
-                    },
-                    color = Color.White
-                )
-            }
         }
     }
 
@@ -546,7 +554,7 @@ fun VncScreen(
                 titleContentColor = Color.White,
                 textContentColor = Color.White,
                 onDismissRequest = { if (!uiState.connecting) showConnectionDialog = false },
-                title = { Text("VNC CONNECT") },
+                title = { Text("vnc connect") },
                 text = {
                     Column(
                         modifier = Modifier
@@ -557,7 +565,7 @@ fun VncScreen(
                         OutlinedTextField(
                             value = server,
                             onValueChange = { server = it },
-                            label = { Text("Server") },
+                            label = { Text("server") },
                             singleLine = true,
                             enabled = !uiState.connecting,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri)
@@ -565,7 +573,7 @@ fun VncScreen(
                         OutlinedTextField(
                             value = port,
                             onValueChange = { port = it },
-                            label = { Text("Port") },
+                            label = { Text("port") },
                             singleLine = true,
                             enabled = !uiState.connecting,
                             isError = validPort == null,
@@ -575,7 +583,7 @@ fun VncScreen(
                         OutlinedTextField(
                             value = password,
                             onValueChange = { password = it },
-                            label = { Text("Pass") },
+                            label = { Text("pass") },
                             singleLine = true,
                             enabled = !uiState.connecting,
                             visualTransformation = PasswordVisualTransformation(),
@@ -589,19 +597,19 @@ fun VncScreen(
                         enabled = !uiState.connecting && !uiState.connected && server.isNotBlank() && validPort != null,
                         onClick = { validPort?.let { viewModel.connect(server, it, password) } }
                     ) {
-                        Text(if (uiState.connecting) "Conectando…" else "Conectar")
+                        Text(if (uiState.connecting) "connecting…" else "connect")
                     }
                 },
                 dismissButton = {
                     TextButton(
                         enabled = !uiState.connecting,
                         onClick = { showConnectionDialog = false }
-                    ) { Text("Cancelar") }
+                    ) { Text("cancel") }
                 }
             )
         }
     }
-    if (leadKB) {
+    if (leadKB && !menuExpanded && !showConnectionDialog) {
         Popup(
             alignment = Alignment.BottomStart,
             onDismissRequest = {},
