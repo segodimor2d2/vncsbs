@@ -9,6 +9,7 @@ import javax.crypto.spec.SecretKeySpec
 
 class VncClient(
     private val onConnectionChanged: (Boolean) -> Unit = {},
+    private val onTransfer: (FrameTransferStats) -> Unit = {},
     private val onFrame: (RemoteFrame) -> Unit
 ) {
 
@@ -42,7 +43,9 @@ class VncClient(
     fun connect(
         host: String,
         port: Int,
-        password: String = ""
+        password: String = "",
+        quality: Int = 6,
+        useTight: Boolean = true
     ) {
         Thread {
             try {
@@ -55,7 +58,7 @@ class VncClient(
 
                 println("VncClient: TCP conectado")
 
-                val input = java.io.BufferedInputStream(newSocket.getInputStream(), 64 * 1024)
+                val input = CountingInputStream(java.io.BufferedInputStream(newSocket.getInputStream(), 64 * 1024))
                 val output = newSocket.getOutputStream()
 
                 val versionBytes = ByteArray(12)
@@ -367,25 +370,8 @@ class VncClient(
                     "VncClient: SetPixelFormat enviado = 32bpp RGB"
                 )
 
-                val setEncodings = ByteArray(8)
-
-                setEncodings[0] = 2       // SetEncodings
-                setEncodings[1] = 0       // padding
-
-                setEncodings[2] = 0       // número de encodings
-                setEncodings[3] = 1       // 1 encoding
-
-                setEncodings[4] = 0       // RAW = 0
-                setEncodings[5] = 0
-                setEncodings[6] = 0
-                setEncodings[7] = 0
-
-                output.write(setEncodings)
+                output.write(if (useTight) tightEncodings(quality) else byteArrayOf(2, 0, 0, 1, 0, 0, 0, 0))
                 output.flush()
-
-                println(
-                    "VncClient: SetEncodings enviado = RAW"
-                )
 
                 newSocket.soTimeout = 0
                 keyboardOutput = output
@@ -393,124 +379,143 @@ class VncClient(
 
                 val framebuffer = RemoteFramebuffer(framebufferWidth, framebufferHeight)
 
-                var incremental = false
-                val request = ByteArray(10)
-                val rectangleCountBytes = ByteArray(2)
-                val rectangleHeader = ByteArray(12)
+                val tight = TightDecoder { bytes, w, h ->
+                    val bitmap = android.graphics.BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                        ?: error("JPEG Tight inválido")
+                    try {
+                        require(bitmap.width == w && bitmap.height == h)
+                        IntArray(w * h).also { bitmap.getPixels(it, 0, w, 0, 0, w, h) }
+                    } finally { bitmap.recycle() }
+                }
+                try {
+                    var incremental = false
+                    val request = ByteArray(10)
+                    val rectangleCountBytes = ByteArray(2)
+                    val rectangleHeader = ByteArray(12)
 
-                while (true) {
+                    while (true) {
 
-                    request[0] = 3
-                    request[1] = if (incremental) 1 else 0
+                        request[0] = 3
+                        request[1] = if (incremental) 1 else 0
 
-                    request[2] = 0
-                    request[3] = 0
+                        request[2] = 0
+                        request[3] = 0
 
-                    request[4] = 0
-                    request[5] = 0
+                        request[4] = 0
+                        request[5] = 0
 
-                    request[6] =
-                        (framebufferWidth shr 8).toByte()
-                    request[7] =
-                        framebufferWidth.toByte()
+                        request[6] =
+                            (framebufferWidth shr 8).toByte()
+                        request[7] =
+                            framebufferWidth.toByte()
 
-                    request[8] =
-                        (framebufferHeight shr 8).toByte()
-                    request[9] =
-                        framebufferHeight.toByte()
+                        request[8] =
+                            (framebufferHeight shr 8).toByte()
+                        request[9] =
+                            framebufferHeight.toByte()
 
-                    synchronized(output) {
-                        output.write(request)
-                        output.flush()
-                    }
-
-                    val messageType = input.read()
-
-                    if (messageType < 0) {
-                        throw Exception(
-                            "Conexão encerrada ao ler FramebufferUpdate"
-                        )
-                    }
-
-                    if (messageType != 0) {
-                        throw Exception(
-                            "Mensagem VNC inesperada: $messageType"
-                        )
-                    }
-
-                    // Padding do FramebufferUpdate
-                    val padding = input.read()
-
-                    if (padding < 0) {
-                        throw Exception(
-                            "Conexão encerrada ao ler padding do FramebufferUpdate"
-                        )
-                    }
-
-                    // Número de rectangles
-                    readFully(
-                        input,
-                        rectangleCountBytes
-                    )
-
-                    val rectangleCount =
-                        ((rectangleCountBytes[0].toInt() and 0xFF) shl 8) or
-                        (rectangleCountBytes[1].toInt() and 0xFF)
-
-                    if (rectangleCount > 0) {
-
-                        for (rectangleIndex in 0 until rectangleCount) {
-
-                            readFully(
-                                input,
-                                rectangleHeader
-                            )
-
-                            val rectX =
-                                ((rectangleHeader[0].toInt() and 0xFF) shl 8) or
-                                (rectangleHeader[1].toInt() and 0xFF)
-
-                            val rectY =
-                                ((rectangleHeader[2].toInt() and 0xFF) shl 8) or
-                                (rectangleHeader[3].toInt() and 0xFF)
-
-                            val rectWidth =
-                                ((rectangleHeader[4].toInt() and 0xFF) shl 8) or
-                                (rectangleHeader[5].toInt() and 0xFF)
-
-                            val rectHeight =
-                                ((rectangleHeader[6].toInt() and 0xFF) shl 8) or
-                                (rectangleHeader[7].toInt() and 0xFF)
-
-                            val encoding =
-                                ((rectangleHeader[8].toInt() and 0xFF) shl 24) or
-                                ((rectangleHeader[9].toInt() and 0xFF) shl 16) or
-                                ((rectangleHeader[10].toInt() and 0xFF) shl 8) or
-                                (rectangleHeader[11].toInt() and 0xFF)
-
-                            if (encoding != 0) {
-                                throw Exception(
-                                    "Encoding não suportado: $encoding"
-                                )
-                            }
-
-                            framebuffer.readRectangle(input, rectX, rectY, rectWidth, rectHeight)
+                        synchronized(output) {
+                            output.write(request)
+                            output.flush()
                         }
 
-                        val revision = framebuffer.commit()
-                        onFrame(
-                            RemoteFrame(
-                                width = framebufferWidth,
-                                height = framebufferHeight,
-                                framebuffer = framebuffer,
-                                revision = revision
+                        val updateStartBytes = input.bytesRead
+                        var rawBytes = 0L
+                        var tightRectangles = 0
+                        var rawRectangles = 0
+                        val messageType = input.read()
+
+                        if (messageType < 0) {
+                            throw Exception(
+                                "Conexão encerrada ao ler FramebufferUpdate"
                             )
+                        }
+
+                        if (messageType != 0) {
+                            throw Exception(
+                                "Mensagem VNC inesperada: $messageType"
+                            )
+                        }
+
+                        // Padding do FramebufferUpdate
+                        val padding = input.read()
+
+                        if (padding < 0) {
+                            throw Exception(
+                                "Conexão encerrada ao ler padding do FramebufferUpdate"
+                            )
+                        }
+
+                        // Número de rectangles
+                        readFully(
+                            input,
+                            rectangleCountBytes
                         )
+
+                        val rectangleCount =
+                            ((rectangleCountBytes[0].toInt() and 0xFF) shl 8) or
+                            (rectangleCountBytes[1].toInt() and 0xFF)
+
+                        if (rectangleCount > 0) {
+
+                            for (rectangleIndex in 0 until rectangleCount) {
+
+                                readFully(
+                                    input,
+                                    rectangleHeader
+                                )
+
+                                val rectX =
+                                    ((rectangleHeader[0].toInt() and 0xFF) shl 8) or
+                                    (rectangleHeader[1].toInt() and 0xFF)
+
+                                val rectY =
+                                    ((rectangleHeader[2].toInt() and 0xFF) shl 8) or
+                                    (rectangleHeader[3].toInt() and 0xFF)
+
+                                val rectWidth =
+                                    ((rectangleHeader[4].toInt() and 0xFF) shl 8) or
+                                    (rectangleHeader[5].toInt() and 0xFF)
+
+                                val rectHeight =
+                                    ((rectangleHeader[6].toInt() and 0xFF) shl 8) or
+                                    (rectangleHeader[7].toInt() and 0xFF)
+
+                                val encoding =
+                                    ((rectangleHeader[8].toInt() and 0xFF) shl 24) or
+                                    ((rectangleHeader[9].toInt() and 0xFF) shl 16) or
+                                    ((rectangleHeader[10].toInt() and 0xFF) shl 8) or
+                                    (rectangleHeader[11].toInt() and 0xFF)
+
+                                require(rectX.toLong() + rectWidth <= framebufferWidth &&
+                                    rectY.toLong() + rectHeight <= framebufferHeight) { "Retângulo VNC fora da tela" }
+                                when (encoding) {
+                                    0 -> framebuffer.readRectangle(input, rectX, rectY, rectWidth, rectHeight)
+                                    7 -> framebuffer.writeRectangle(rectX, rectY, rectWidth, rectHeight,
+                                        tight.readRectangle(input, rectWidth, rectHeight))
+                                    else -> error("Encoding não suportado: $encoding")
+                                }
+                                rawBytes += rectWidth.toLong() * rectHeight * 4
+                                if (encoding == 7) tightRectangles++ else rawRectangles++
+                            }
+
+                            val revision = framebuffer.commit()
+                            onFrame(
+                                RemoteFrame(
+                                    width = framebufferWidth,
+                                    height = framebufferHeight,
+                                    framebuffer = framebuffer,
+                                    revision = revision
+                                )
+                            )
+                        }
+
+                        onTransfer(FrameTransferStats(input.bytesRead - updateStartBytes, rawBytes,
+                            tightRectangles, rawRectangles))
+                        incremental = true
                     }
 
-                    incremental = true
-                }
-
+                } finally { tight.close() }
             } catch (e: Exception) {
                 println(
                     "VncClient: erro = ${e.message}"

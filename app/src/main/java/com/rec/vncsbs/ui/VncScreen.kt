@@ -85,6 +85,7 @@ fun VncScreen(
     var server by rememberSaveable { mutableStateOf(lastConnection.host) }
     var port by rememberSaveable { mutableStateOf(lastConnection.port.toString()) }
     var password by rememberSaveable { mutableStateOf(lastConnection.password) }
+    var quality by rememberSaveable { mutableStateOf(lastConnection.quality) }
     LaunchedEffect(uiState.connected) {
         if (uiState.connected) connectionExpanded = false
     }
@@ -316,6 +317,7 @@ fun VncScreen(
                                     server = it.host
                                     port = it.port.toString()
                                     password = it.password
+                                    quality = it.quality
                                     viewModel.connectSaved(it)
                                 },
                                 onDelete = viewModel::deleteSavedConnection
@@ -336,7 +338,9 @@ fun VncScreen(
                                 onPortChange = { port = it },
                                 onPasswordChange = { password = it },
                                 onInputFocusChange = { connectionInputFocused = it },
-                                onConnect = { viewModel.connect(server, it, password) },
+                                onConnect = { viewModel.connect(server, it, password, quality) },
+                                quality = quality,
+                                onQualityChange = { quality = it },
                                 onDisconnect = { viewModel.disconnect() },
                                 onClose = { connectionExpanded = false }
                             )

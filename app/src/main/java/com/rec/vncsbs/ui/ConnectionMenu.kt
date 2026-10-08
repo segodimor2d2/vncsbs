@@ -37,7 +37,9 @@ internal fun ConnectionMenu(
     onInputFocusChange: (Boolean) -> Unit,
     onConnect: (Int) -> Unit,
     onDisconnect: () -> Unit,
-    onClose: () -> Unit
+    onClose: () -> Unit,
+    quality: Int = 6,
+    onQualityChange: (Int) -> Unit = {}
 ) {
     val validPort = port.toIntOrNull()?.takeIf { it in 1..65535 }
     val focusManager = LocalFocusManager.current
@@ -98,6 +100,13 @@ internal fun ConnectionMenu(
             visualTransformation = PasswordVisualTransformation(),
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password)
         )
+        Text(if (quality < 0) "without loss of quality" else "quality $quality/9", color = Color.White)
+        androidx.compose.material3.Slider(
+            value = quality.toFloat(), onValueChange = { onQualityChange(it.toInt()) },
+            valueRange = -1f..9f, steps = 9, enabled = editable,
+            modifier = Modifier.widthIn(max = 360.dp).testTag("connection-quality")
+        )
+        Text("- quality - dataTraffic.", color = Color.White, fontSize = 12.sp)
         state.connectionError?.let { Text(it, color = Color(0xFFFF8080)) }
         Row {
             if (state.connected) {

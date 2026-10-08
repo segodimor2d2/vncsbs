@@ -14,7 +14,12 @@ class VncKeyboardConnectionTest {
     @Test fun sendsKeysWhileWaitingForFramebuffer() {
         ServerSocket(0).use { server ->
             val connected = CountDownLatch(1)
-            val client = VncClient(onConnectionChanged = { if (it) connected.countDown() }) {}
+            val frameReceived = CountDownLatch(1)
+            var receivedPixel = 0
+            val client = VncClient(onConnectionChanged = { if (it) connected.countDown() }) { frame ->
+                frame.framebuffer?.readChanges(-1) { pixels, _, _ -> receivedPixel = pixels[0] }
+                frameReceived.countDown()
+            }
             try {
                 client.connect("127.0.0.1", server.localPort)
                 server.soTimeout = 5000
@@ -41,7 +46,9 @@ class VncKeyboardConnectionTest {
                     output.writeInt(0)
                     output.flush()
                     read(20) // SetPixelFormat
-                    read(8) // SetEncodings
+                    read(2) // SetEncodings type and padding
+                    val encodingCount = input.readUnsignedShort()
+                    read(encodingCount * 4)
                     read(10) // FramebufferUpdateRequest
                     assertTrue(connected.await(5, TimeUnit.SECONDS))
                     client.sendKeyEvent(0xffe3, true)
@@ -74,6 +81,18 @@ class VncKeyboardConnectionTest {
                     assertArrayEquals(byteArrayOf(5, 1, 0, 30, 0, 40), read(6))
                     assertArrayEquals(byteArrayOf(5, 0, 0, 30, 0, 40), read(6))
                     assertArrayEquals(byteArrayOf(4, 0, 0, 0, 0, 0, -1, -23), read(8))
+                    // Complete the pending update with a Tight fill rectangle.
+                    output.writeByte(0)
+                    output.writeByte(0)
+                    output.writeShort(1)
+                    output.writeShort(0); output.writeShort(0)
+                    output.writeShort(1); output.writeShort(1)
+                    output.writeInt(7)
+                    output.write(byteArrayOf(0x80.toByte(), 0x12, 0x34, 0x56))
+                    output.flush()
+                    assertTrue(frameReceived.await(5, TimeUnit.SECONDS))
+                    org.junit.Assert.assertEquals(0xff123456.toInt(), receivedPixel)
+
                 }
             } finally {
                 client.close()

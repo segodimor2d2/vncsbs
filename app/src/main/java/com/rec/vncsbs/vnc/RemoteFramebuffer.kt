@@ -46,6 +46,17 @@ class RemoteFramebuffer(val width: Int, val height: Int) {
         }
     }
 
+    fun writeRectangle(x: Int, y: Int, w: Int, h: Int, pixels: IntArray) {
+        require(x >= 0 && y >= 0 && w > 0 && h > 0 &&
+            x.toLong() + w <= width && y.toLong() + h <= height)
+        require(pixels.size == w * h)
+        for (row in 0 until h) pixels.copyInto(working, (y + row) * width + x, row * w, (row + 1) * w)
+        left = minOf(left, x)
+        top = minOf(top, y)
+        right = maxOf(right, x + w)
+        bottom = maxOf(bottom, y + h)
+    }
+
     /** Call only after all rectangles of a server update have arrived. */
     @Synchronized
     fun commit(): Long {

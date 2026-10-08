@@ -25,7 +25,8 @@ data class VncUiState(
 data class VncConnection(
     val host: String = "192.168.1.100",
     val port: Int = 5900,
-    val password: String = ""
+    val password: String = "",
+    val quality: Int = 6
 )
 
 class VncViewModel(application: Application) : AndroidViewModel(application) {
@@ -40,7 +41,7 @@ class VncViewModel(application: Application) : AndroidViewModel(application) {
             val entries = JSONArray(saved)
             List(entries.length()) { index ->
                 val entry = entries.getJSONObject(index)
-                VncConnection(entry.getString("host"), entry.getInt("port"), entry.getString("password"))
+                VncConnection(entry.getString("host"), entry.getInt("port"), entry.getString("password"), entry.optInt("quality", 6).coerceIn(-1, 9))
             }
         }.getOrDefault(emptyList())
     }
@@ -49,7 +50,7 @@ class VncViewModel(application: Application) : AndroidViewModel(application) {
         val entries = JSONArray()
         connections.forEach { connection ->
             entries.put(JSONObject().put("host", connection.host)
-                .put("port", connection.port).put("password", connection.password))
+                .put("port", connection.port).put("password", connection.password).put("quality", connection.quality))
         }
         connectionPreferences.edit().putString("saved_connections", entries.toString()).apply()
         _uiState.update { it.copy(savedConnections = connections) }
@@ -67,13 +68,14 @@ class VncViewModel(application: Application) : AndroidViewModel(application) {
             queuedConnection = connection
             _uiState.update { it.copy(connecting = true, connectionError = null) }
             vncClient.disconnect()
-        } else connect(connection.host, connection.port, connection.password)
+        } else connect(connection.host, connection.port, connection.password, connection.quality)
     }
 
     fun lastConnection() = VncConnection(
         host = connectionPreferences.getString("host", "192.168.1.100") ?: "192.168.1.100",
         port = connectionPreferences.getInt("port", 5900),
-        password = connectionPreferences.getString("password", "") ?: ""
+        password = connectionPreferences.getString("password", "") ?: "",
+        quality = connectionPreferences.getInt("quality", 6).coerceIn(-1, 9)
     )
 
     private val frameChannel =
@@ -97,6 +99,7 @@ class VncViewModel(application: Application) : AndroidViewModel(application) {
                         connectionPreferences.edit()
                             .putString("host", connection.host)
                             .putInt("port", connection.port)
+                            .putInt("quality", connection.quality)
                             .putString("password", connection.password)
                             .apply()
                     }
@@ -113,7 +116,7 @@ class VncViewModel(application: Application) : AndroidViewModel(application) {
                         else null
                     )
                 }
-                nextConnection?.let { connect(it.host, it.port, it.password) }
+                nextConnection?.let { connect(it.host, it.port, it.password, it.quality) }
             }
         }
     ) { frame ->
@@ -133,12 +136,12 @@ class VncViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun connect(host: String, port: Int, password: String = "") {
+    fun connect(host: String, port: Int, password: String = "", quality: Int = 6) {
         if (_uiState.value.connecting || _uiState.value.connected) return
         if (host.isBlank() || port !in 1..65535) return
-        pendingConnection = VncConnection(host.trim(), port, password)
+        pendingConnection = VncConnection(host.trim(), port, password, quality)
         _uiState.update { it.copy(connecting = true, connectionError = null) }
-        vncClient.connect(host = host.trim(), port = port, password = password)
+        vncClient.connect(host = host.trim(), port = port, password = password, quality = quality)
     }
 
     fun disconnect() {
